@@ -1,4 +1,5 @@
 import { store } from "./store";
+import { firestoreSync } from "./firestoreSync";
 import {
   Customer,
   Product,
@@ -13,7 +14,7 @@ import {
   OverviewMetrics
 } from "@/lib/types";
 
-// Unified Data Access Layer
+// Unified Data Access Layer (Local Store + Live Cloud Firestore)
 export const dbService = {
   // Products
   getProducts: async (): Promise<Product[]> => {
@@ -30,12 +31,16 @@ export const dbService = {
   },
 
   createCustomer: async (customer: Customer): Promise<Customer> => {
-    return store.setCustomer(customer);
+    const res = store.setCustomer(customer);
+    firestoreSync.saveCustomer(customer).catch(() => {});
+    return res;
   },
 
   // Orders
   createOrder: async (order: Order): Promise<Order> => {
-    return store.createOrder(order);
+    const res = store.createOrder(order);
+    firestoreSync.saveOrder(order).catch(() => {});
+    return res;
   },
 
   getOrderById: async (id: string): Promise<Order | null> => {
@@ -43,7 +48,9 @@ export const dbService = {
   },
 
   updateOrder: async (id: string, updates: Partial<Order>): Promise<Order | null> => {
-    return store.updateOrder(id, updates) || null;
+    const res = store.updateOrder(id, updates) || null;
+    if (res) firestoreSync.saveOrder(res).catch(() => {});
+    return res;
   },
 
   // Payments
@@ -69,11 +76,15 @@ export const dbService = {
   },
 
   createRecoveryOpportunity: async (opp: RecoveryOpportunity): Promise<RecoveryOpportunity> => {
-    return store.setRecoveryOpportunity(opp);
+    const res = store.setRecoveryOpportunity(opp);
+    firestoreSync.saveOpportunity(opp).catch(() => {});
+    return res;
   },
 
   updateRecoveryOpportunity: async (id: string, updates: Partial<RecoveryOpportunity>): Promise<RecoveryOpportunity | null> => {
-    return store.updateRecoveryOpportunity(id, updates) || null;
+    const res = store.updateRecoveryOpportunity(id, updates) || null;
+    if (res) firestoreSync.saveOpportunity(res).catch(() => {});
+    return res;
   },
 
   // Decisions & Actions
@@ -95,7 +106,9 @@ export const dbService = {
 
   // Audit Logs
   addAuditLog: async (log: Omit<AuditLog, "auditId" | "createdAt">): Promise<AuditLog> => {
-    return store.addAuditLog(log);
+    const res = store.addAuditLog(log);
+    firestoreSync.saveAuditLog(res).catch(() => {});
+    return res;
   },
 
   getAuditLogs: async (): Promise<AuditLog[]> => {
@@ -118,7 +131,19 @@ export const dbService = {
 
   // Realtime Subscriptions
   subscribeOpportunities: (cb: (data: RecoveryOpportunity[]) => void) => {
-    return store.subscribeOpportunities(cb);
+    // Subscribe local memory store for instant responsiveness
+    const unsubLocal = store.subscribeOpportunities(cb);
+    // Also attach Firestore live listener if available
+    const unsubRemote = firestoreSync.subscribeOpportunities((remoteList) => {
+      if (remoteList.length > 0) {
+        cb(remoteList);
+      }
+    });
+
+    return () => {
+      unsubLocal();
+      unsubRemote();
+    };
   },
 
   subscribeOpportunityById: (id: string, cb: (data: RecoveryOpportunity | null) => void) => {
@@ -126,7 +151,17 @@ export const dbService = {
   },
 
   subscribeAuditLogs: (cb: (data: AuditLog[]) => void) => {
-    return store.subscribeAuditLogs(cb);
+    const unsubLocal = store.subscribeAuditLogs(cb);
+    const unsubRemote = firestoreSync.subscribeAuditLogs((remoteLogs) => {
+      if (remoteLogs.length > 0) {
+        cb(remoteLogs);
+      }
+    });
+
+    return () => {
+      unsubLocal();
+      unsubRemote();
+    };
   },
 
   subscribeMetrics: (cb: (data: OverviewMetrics) => void) => {
