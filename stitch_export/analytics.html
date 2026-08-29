@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RevenueOS - Analytics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "on-tertiary-fixed-variant": "#414c00",
+                "tertiary-container": "#191e00",
+                "inverse-primary": "#c8c6c5",
+                "surface-dim": "#d9dadd",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-container": "#7a8c00",
+                "primary-fixed-dim": "#c8c6c5",
+                "surface-bright": "#f8f9fc",
+                "on-surface": "#191c1e",
+                "on-tertiary-fixed": "#191e00",
+                "surface-container-highest": "#e1e2e5",
+                "tertiary": "#000000",
+                "on-secondary": "#ffffff",
+                "on-primary-container": "#858383",
+                "outline-variant": "#c4c7c7",
+                "error-container": "#ffdad6",
+                "surface-tint": "#5f5e5e",
+                "on-error-container": "#93000a",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed-variant": "#474646",
+                "on-background": "#191c1e",
+                "tertiary-fixed": "#d6ee52",
+                "inverse-surface": "#2e3133",
+                "surface-container-low": "#f2f3f6",
+                "outline": "#747878",
+                "on-secondary-fixed-variant": "#481bc6",
+                "on-secondary-container": "#191c1e",
+                "surface-container": "#edeef1",
+                "primary": "#000000",
+                "background": "#e8eaf1",
+                "secondary-container": "#d6ee52",
+                "secondary": "#2f3130",
+                "on-primary": "#ffffff",
+                "secondary-fixed-dim": "#cabeff",
+                "surface-variant": "#e1e2e5",
+                "on-error": "#ffffff",
+                "secondary-fixed": "#e6deff",
+                "on-secondary-fixed": "#1c0062",
+                "surface-container-high": "#e7e8eb",
+                "inverse-on-surface": "#f0f1f4",
+                "on-surface-variant": "#747878",
+                "primary-fixed": "#e5e2e1",
+                "on-primary-fixed": "#1c1b1b",
+                "surface": "#f4f6fa",
+                "tertiary-fixed-dim": "#bad237",
+                "primary-container": "#1c1b1b",
+                "error": "#ba1a1a"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "2xl": "1.5rem",
+                "3xl": "2.5rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "container-padding": "2rem",
+                "section-margin": "2rem",
+                "card-gap": "1rem",
+                "gutter": "1.5rem"
+        },
+        "fontFamily": {
+                "label-md": [
+                        "Manrope"
+                ],
+                "display-lg": [
+                        "Manrope"
+                ],
+                "headline-sm": [
+                        "Manrope"
+                ],
+                "headline-md-mobile": [
+                        "Manrope"
+                ],
+                "body-md": [
+                        "Manrope"
+                ],
+                "headline-md": [
+                        "Manrope"
+                ],
+                "body-lg": [
+                        "Manrope"
+                ]
+        },
+        "fontSize": {
+                "label-md": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "display-lg": [
+                        "40px",
+                        {
+                                "lineHeight": "48px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-sm": [
+                        "18px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "headline-md-mobile": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-md": [
+                        "28px",
+                        {
+                                "lineHeight": "36px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body {
+            background-color: theme('colors.background');
+            color: theme('colors.on-background');
+        }
+        .app-container {
+            background-color: theme('colors.surface');
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.1);
+        }
+        .nav-pill {
+            background-color: theme('colors.secondary');
+            color: theme('colors.on-secondary');
+        }
+        .nav-pill-active {
+            background-color: theme('colors.secondary-container');
+            color: theme('colors.on-secondary-container');
+        }
+        .dark-section {
+            background-color: theme('colors.secondary');
+            color: theme('colors.on-secondary');
+        }
+    </style>
+</head>
+<body class="min-h-screen font-body-md antialiased text-body-md selection:bg-secondary-fixed selection:text-on-secondary-fixed p-4 md:p-8">
+<div class="app-container max-w-[1440px] mx-auto rounded-3xl overflow-hidden flex flex-col">
+<!-- TopNavBar -->
+<nav class="flex items-center justify-between w-full px-8 py-6">
+<div class="flex items-center gap-12">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-2xl">all_out</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">RevenueOS</span>
+</div>
+<div class="hidden md:flex items-center p-1 bg-secondary rounded-full font-label-md text-label-md">
+<a class="text-on-secondary hover:text-white px-4 py-2 transition-colors rounded-full" href="#">Overview</a>
+<a class="text-on-secondary hover:text-white px-4 py-2 transition-colors rounded-full" href="#">Recovery</a>
+<a class="nav-pill-active rounded-full px-6 py-2 font-semibold shadow-sm" href="#">Analytics</a>
+<a class="text-on-secondary hover:text-white px-4 py-2 transition-colors rounded-full" href="#">Audit</a>
+</div>
+</div>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined text-xl">dataset</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined text-xl">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container-high rounded-full transition-colors">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant/30 ml-2">
+<img alt="Merchant Profile" class="w-full h-full object-cover" data-alt="A minimal, elegant user profile avatar representing a financial merchant. The image features a stylized geometric human silhouette against a clean, light-mode background in soft white and gray tones. The style is modern, professional, and abstract, fitting a premium SaaS dashboard aesthetic. No text or complex details." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-8 pb-8 flex flex-col gap-8">
+<!-- Header & Filters -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="w-8 h-8 flex items-center justify-center rounded-full border border-outline-variant/50 text-on-surface hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-sm">arrow_back</span>
+</button>
+<h1 class="font-display-lg text-display-lg text-on-surface">Analytics</h1>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full border border-outline-variant/50 text-on-surface hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-xl">tune</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 rounded-full border border-outline-variant/50 font-label-md text-label-md hover:bg-surface-container-high transition-colors text-on-surface">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>Export report</span>
+</button>
+</div>
+</div>
+<!-- Core Metrics Row -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-surface-container-highest/30 p-6 rounded-3xl">
+<!-- Metric 1 -->
+<div class="flex flex-col gap-2">
+<h3 class="font-label-md text-label-md text-on-surface-variant">Total Revenue at Risk</h3>
+<div class="font-headline-md text-headline-md text-on-surface">₹24.85L</div>
+</div>
+<!-- Metric 2 -->
+<div class="flex flex-col gap-2 relative">
+<div class="absolute left-0 top-1/4 bottom-1/4 w-[1px] bg-outline-variant/30 -ml-2 hidden md:block"></div>
+<h3 class="font-label-md text-label-md text-on-surface-variant pl-4">Recovered</h3>
+<div class="font-headline-md text-headline-md text-on-surface pl-4">₹11.42L</div>
+</div>
+<!-- Metric 3 -->
+<div class="flex flex-col gap-2 relative">
+<div class="absolute left-0 top-1/4 bottom-1/4 w-[1px] bg-outline-variant/30 -ml-2 hidden md:block"></div>
+<h3 class="font-label-md text-label-md text-on-surface-variant pl-4">Recovery Rate</h3>
+<div class="flex items-baseline gap-2 pl-4">
+<div class="font-headline-md text-headline-md text-on-surface">45.9%</div>
+<span class="font-label-md text-on-surface-variant">Avg</span>
+</div>
+</div>
+<!-- Metric 4 -->
+<div class="flex flex-col gap-2 relative">
+<div class="absolute left-0 top-1/4 bottom-1/4 w-[1px] bg-outline-variant/30 -ml-2 hidden md:block"></div>
+<div class="flex items-center justify-between pl-4">
+<h3 class="font-label-md text-label-md text-on-surface-variant">Incremental Revenue</h3>
+<button class="w-6 h-6 rounded-full border border-outline-variant/50 flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined text-xs">arrow_outward</span>
+</button>
+</div>
+<div class="flex items-center gap-4 pl-4 mt-2">
+<div class="font-headline-md text-headline-md text-on-surface">₹6.84L</div>
+<span class="px-3 py-1 bg-surface-container-lowest rounded-full border border-outline-variant/30 font-label-md text-[10px] text-on-surface-variant shadow-sm">Target</span>
+</div>
+</div>
+</div>
+<!-- Recovery Trend Chart (Minimal style) -->
+<div class="bg-surface-container-highest/30 rounded-3xl p-6 flex flex-col">
+<div class="flex items-center justify-between mb-8 text-label-md text-on-surface-variant">
+<span>Oct 1</span>
+<span>Oct 15</span>
+<span>Oct 31</span>
+<span>Nov 15</span>
+</div>
+<div class="relative w-full h-3 bg-surface-container-highest rounded-full overflow-hidden flex">
+<div class="h-full bg-secondary-container" style="width: 25%"></div>
+<div class="h-full bg-surface-container-highest border-x-2 border-surface w-2"></div>
+<div class="h-full bg-secondary-container" style="width: 15%"></div>
+<div class="h-full bg-surface-container-highest border-x-2 border-surface w-2"></div>
+<div class="h-full bg-secondary-container" style="width: 35%"></div>
+<div class="h-full bg-surface-container-highest border-x-2 border-surface w-2"></div>
+<div class="h-full bg-secondary-container" style="width: 10%"></div>
+</div>
+<div class="flex items-center justify-between mt-6">
+<div class="flex -space-x-2">
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+</div>
+<div class="flex -space-x-2">
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+</div>
+<div class="flex -space-x-2">
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+<img alt="User" class="w-8 h-8 rounded-full border-2 border-surface bg-surface-container-highest" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoLu7wlmbEtaX1cOit-P-PAoPP5ZZcC-OqA6y6Mu9q-ak3kBteO7jUvmq_l8JjUrb5qGaDzyj00gFzDL7VNZYhtAq6khJVViJ65wCA-PzVTUQZ1HI_zOwrXKxM5kKMbal7YUYuCzF5gSGR8_EbZuJ5JvLq5cnUiEIgDadhu8FI7sm3ysruo0DcTK0XA2FLw-Y6yu3mkcpaSh5spv2tzaK1jbOfP_VzO1QuZVxMgG8SI8AExQxIUnx9"/>
+</div>
+</div>
+</div>
+<!-- Active Filters Row -->
+<div class="flex items-center gap-4 py-2">
+<div class="flex items-center gap-2 font-headline-sm text-sm">
+<span>Active filters</span>
+<span class="w-5 h-5 flex items-center justify-center bg-secondary text-white rounded-full text-[10px]">2</span>
+</div>
+<div class="flex items-center gap-2 text-xs">
+<button class="flex items-center justify-between px-4 py-2 bg-white border border-outline-variant/30 rounded-full w-32 text-on-surface-variant">
+<span>All customers</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="flex items-center justify-between px-4 py-2 bg-white border border-outline-variant/30 rounded-full w-32 text-on-surface-variant">
+<span>All statuses</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<button class="flex items-center justify-between px-4 py-2 bg-white border border-outline-variant/30 rounded-full w-36 text-on-surface-variant">
+<span>Last 30 Days</span>
+<span class="material-symbols-outlined text-sm">calendar_today</span>
+</button>
+<div class="flex-1 relative">
+<input class="w-full pl-4 pr-10 py-2 rounded-full border border-outline-variant/30 bg-white text-xs placeholder:text-outline focus:ring-0 focus:border-outline-variant" placeholder="Enter invoice #" type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-outline-variant text-sm">search</span>
+</div>
+</div>
+</div>
+<!-- Dark Bottom Section -->
+<div class="dark-section rounded-[2.5rem] p-6 relative flex flex-col lg:flex-row gap-6 mt-4">
+<!-- Floating Tab Bar -->
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-white rounded-full p-1.5 flex items-center gap-2 shadow-sm border border-outline-variant/20 font-label-md text-sm">
+<button class="px-6 py-2 rounded-full text-on-surface font-semibold hover:bg-surface-container-lowest">Overview</button>
+<button class="px-4 py-2 rounded-full text-on-surface-variant hover:bg-surface-container-lowest flex items-center gap-2">
+      Leakage
+      <span class="bg-surface-container-high px-2 py-0.5 rounded-full text-[10px]">3</span>
+</button>
+<button class="px-4 py-2 rounded-full bg-secondary-container text-on-secondary-container font-semibold flex items-center gap-2">
+      Methods
+      <span class="bg-white px-2 py-0.5 rounded-full text-[10px]">5</span>
+</button>
+</div>
+<!-- Left Col: Revenue Leakage List -->
+<div class="w-full lg:w-1/3 pt-6 pr-4">
+<h2 class="font-headline-sm text-headline-sm text-white/90 mb-6 pl-2">Revenue Leakage</h2>
+<div class="flex flex-col gap-2">
+<!-- Item 1 -->
+<div class="flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/5 transition-colors group cursor-pointer border border-transparent hover:border-white/10">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<div class="flex flex-col">
+<span class="font-body-md text-white/90">Payment Failures</span>
+<span class="text-[10px] text-white/50">Top cause</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-md text-white/50">32%</span>
+<span class="font-body-md text-white">₹8.2L</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/10 border border-white/10 transition-colors cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-error/70"></div>
+<div class="flex flex-col">
+<span class="font-body-md text-white">Checkout Abandon</span>
+<span class="text-[10px] bg-white text-secondary px-2 rounded-full mt-1 w-fit">Active issue</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-md text-white/50">24%</span>
+<span class="font-body-md text-white font-semibold">₹6.1L</span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between px-4 py-3 rounded-2xl hover:bg-white/5 transition-colors group cursor-pointer border border-transparent hover:border-white/10">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-error/40"></div>
+<div class="flex flex-col">
+<span class="font-body-md text-white/90">Subscription Fails</span>
+<span class="text-[10px] text-white/50">Recurring</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-md text-white/50">18%</span>
+<span class="font-body-md text-white">₹5.3L</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Col: Best Methods Panel -->
+<div class="w-full lg:w-2/3 bg-[#5e7182] rounded-3xl p-6 flex flex-col gap-6 text-white pt-8">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-xs text-white/70 mb-1">Recovery detail</p>
+<div class="flex items-center gap-3">
+<h3 class="text-3xl font-light">#UPI-Rec</h3>
+<span class="text-[10px] border border-white/30 px-2 py-0.5 rounded-full text-white/70">Primary</span>
+</div>
+</div>
+<div class="text-right">
+<p class="text-xs text-white/70 mb-1">Insight</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary-container">auto_awesome</span>
+<span class="font-medium">Strongest in ₹1k-₹5k segment</span>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="bg-white/10 rounded-2xl p-4 flex flex-col gap-1">
+<span class="text-xs text-white/70">Success Rate</span>
+<span class="text-xl font-medium">78%</span>
+<span class="text-[10px] text-white/50">Highest overall</span>
+</div>
+<div class="bg-white/10 rounded-2xl p-4 flex flex-col gap-1">
+<span class="text-xs text-white/70">Avg Time</span>
+<span class="text-xl font-medium">1.2 hrs</span>
+<span class="text-[10px] text-white/50">Fastest method</span>
+</div>
+<div class="bg-white/10 rounded-2xl p-4 flex flex-col gap-1">
+<span class="text-xs text-white/70">Recovered Amount</span>
+<span class="text-xl font-medium">₹4.2L</span>
+<span class="text-[10px] text-white/50">Last 30 days</span>
+</div>
+</div>
+<!-- Comparison Bars -->
+<div class="flex flex-col gap-4 mt-2">
+<div class="flex items-center gap-4">
+<span class="w-24 text-xs text-white/70">UPI</span>
+<div class="flex-1 h-8 bg-white/10 rounded-r-xl relative flex items-center">
+<div class="absolute left-0 h-full bg-secondary-container/90 rounded-r-xl z-0" style="width: 78%"></div>
+<span class="relative z-10 pl-3 text-xs text-secondary font-medium">78%</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="w-24 text-xs text-white/70">Recovery Link</span>
+<div class="flex-1 h-8 bg-white/10 rounded-r-xl relative flex items-center">
+<div class="absolute left-0 h-full bg-white/30 rounded-r-xl z-0" style="width: 69%"></div>
+<span class="relative z-10 pl-3 text-xs">69%</span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="w-24 text-xs text-white/70">Netbanking</span>
+<div class="flex-1 h-8 bg-white/10 rounded-r-xl relative flex items-center">
+<div class="absolute left-0 h-full bg-white/20 rounded-r-xl z-0" style="width: 64%"></div>
+<span class="relative z-10 pl-3 text-xs">64%</span>
+</div>
+</div>
+</div>
+<div class="flex justify-between items-center mt-2 pt-4 border-t border-white/10">
+<div class="flex gap-4">
+<div class="flex flex-col">
+<span class="text-xs text-white/50">Total Leakage</span>
+<span class="font-medium">₹24.85L</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-white/50">Total Recovered</span>
+<span class="font-medium">₹11.42L</span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-white/50">Net Loss</span>
+<span class="font-medium">₹13.43L</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-xl border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="w-10 h-10 rounded-xl border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-sm">download</span>
+</button>
+<button class="px-6 py-2.5 rounded-xl bg-secondary-container text-secondary font-semibold text-sm hover:opacity-90 transition-opacity">
+        Optimize Routes
+      </button>
+</div>
+</div>
+</div>
+<!-- Dark Section Actions -->
+<div class="absolute top-6 right-6 flex gap-2">
+<button class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-sm text-white">filter_list</span>
+</button>
+<button class="w-8 h-8 rounded-full border border-white/20 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-sm text-white">more_vert</span>
+</button>
+</div>
+</div>
+</main>
+</div>
+</body></html>

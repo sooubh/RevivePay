@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RevenueOS - Overview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "on-tertiary-fixed-variant": "#414c00",
+                "tertiary-container": "#191e00",
+                "inverse-primary": "#c8c6c5",
+                "surface-dim": "#d9dadd",
+                "on-tertiary": "#ffffff",
+                "on-tertiary-container": "#7a8c00",
+                "primary-fixed-dim": "#c8c6c5",
+                "surface-bright": "#f8f9fc",
+                "on-surface": "#191c1e",
+                "on-tertiary-fixed": "#191e00",
+                "surface-container-highest": "#e1e2e5",
+                "tertiary": "#000000",
+                "on-secondary": "#ffffff",
+                "on-primary-container": "#858383",
+                "outline-variant": "#c4c7c7",
+                "error-container": "#ffdad6",
+                "surface-tint": "#5f5e5e",
+                "on-error-container": "#93000a",
+                "surface-container-lowest": "#ffffff",
+                "on-primary-fixed-variant": "#474646",
+                "on-background": "#191c1e",
+                "tertiary-fixed": "#d6ee52",
+                "inverse-surface": "#2e3133",
+                "surface-container-low": "#f2f3f6",
+                "outline": "#747878",
+                "on-secondary-fixed-variant": "#481bc6",
+                "on-secondary-container": "#fffbff",
+                "surface-container": "#edeef1",
+                "primary": "#000000",
+                "background": "#f8f9fc",
+                "secondary-container": "#7858f5",
+                "secondary": "#5e3bdb",
+                "on-primary": "#ffffff",
+                "secondary-fixed-dim": "#cabeff",
+                "surface-variant": "#e1e2e5",
+                "on-error": "#ffffff",
+                "secondary-fixed": "#e6deff",
+                "on-secondary-fixed": "#1c0062",
+                "surface-container-high": "#e7e8eb",
+                "inverse-on-surface": "#f0f1f4",
+                "on-surface-variant": "#444748",
+                "primary-fixed": "#e5e2e1",
+                "on-primary-fixed": "#1c1b1b",
+                "surface": "#f8f9fc",
+                "tertiary-fixed-dim": "#bad237",
+                "primary-container": "#1c1b1b",
+                "error": "#ba1a1a",
+                "brand-yellow": "#D4FF00",
+                "brand-dark": "#2E2E2E",
+                "brand-blue-gray": "#7A90A2",
+                "brand-blue-gray-light": "#8BA2B4"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "2xl": "1.5rem",
+                      "3xl": "2.5rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter": "1.5rem",
+                      "card-gap": "2rem",
+                      "container-padding": "4rem",
+                      "section-margin": "3rem"
+              },
+              "fontFamily": {
+                      "headline-sm": [
+                              "Manrope"
+                      ],
+                      "headline-md-mobile": [
+                              "Manrope"
+                      ],
+                      "label-md": [
+                              "Manrope"
+                      ],
+                      "body-md": [
+                              "Manrope"
+                      ],
+                      "display-lg": [
+                              "Manrope"
+                      ],
+                      "body-lg": [
+                              "Manrope"
+                      ],
+                      "headline-md": [
+                              "Manrope"
+                      ]
+              },
+              "fontSize": {
+                      "headline-sm": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-md-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "13px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "15px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "40px",
+                              {
+                                      "lineHeight": "48px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .glass-card {
+            background: #F3F4F6;
+            border-radius: 24px;
+        }
+        .metric-glow {
+            box-shadow: none;
+        }
+        .progress-bar {
+            background: repeating-linear-gradient(
+                -45deg,
+                #D4FF00,
+                #D4FF00 4px,
+                transparent 4px,
+                transparent 8px
+            );
+        }
+      </style>
+</head>
+<body class="bg-[#E5E5E5] text-on-surface font-body-md antialiased min-h-screen py-8 px-4 flex justify-center">
+<div class="bg-[#EFF4F8] w-full max-w-[1440px] min-h-[900px] rounded-3xl shadow-xl overflow-hidden flex flex-col relative">
+<!-- Top Nav Layer -->
+<div class="w-full px-12 pt-10 pb-4 flex items-center justify-between z-10 relative">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-2xl" data-icon="star">star</span>
+<span class="font-bold text-xl tracking-tight">RevenueOS</span>
+</div>
+<div class="bg-brand-dark text-white rounded-full flex items-center px-2 py-2 gap-2 text-sm font-medium">
+<span class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="dashboard">dashboard</span>
+</span>
+<a class="px-4 py-2 hover:bg-white/10 rounded-full transition-colors text-white/70" href="#">Recovery</a>
+<a class="px-6 py-2 bg-brand-yellow text-brand-dark rounded-full font-bold flex items-center gap-2" href="#">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-dark"></span>
+                Overview
+            </a>
+<a class="px-4 py-2 hover:bg-white/10 rounded-full transition-colors text-white/70" href="#">Analytics</a>
+<a class="px-4 py-2 hover:bg-white/10 rounded-full transition-colors text-white/70 mr-4" href="#">Audit</a>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center bg-white text-gray-500 hover:bg-gray-50">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-gray-300 shrink-0 cursor-pointer">
+<img alt="Merchant Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP1BHrcpb9ibRKO2rL4gx1VFTCw7cBkVKRuYnhd3uzD3cZWMTxkQdeHwfBjMwjLpL_TNpsMyKUjDbr5mOsPaG8gMv4UAUel9jS5yXdJfif-gSqAYjc5GmvFIjaL7lQN6_GtRgN5xLG9Ndl2aq3Zmg4jDbGAQwxMAuirCJAy-RZBsbhk5zlRjx-2vEbL__IuruuTFU38ND5flNE8fdBBnXaDrZrn4_HHMQiITzj0R-X_x75ajyXjP9I"/>
+</div>
+</div>
+</div>
+<!-- Main Content -->
+<main class="flex-1 px-12 pb-12 flex flex-col z-0 relative">
+<!-- Header -->
+<header class="flex items-center justify-between mb-8">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center bg-white text-gray-500">
+<span class="material-symbols-outlined text-[20px]" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="text-[56px] font-medium tracking-tight text-gray-900 leading-none">Overview</h1>
+</div>
+<button class="bg-white border border-gray-300 rounded-full px-6 py-2.5 text-sm font-semibold flex items-center gap-2 hover:bg-gray-50">
+<span class="material-symbols-outlined text-[18px]" data-icon="add_circle">add_circle</span>
+                Review Settings
+            </button>
+</header>
+<!-- Metric Cards -->
+<div class="grid grid-cols-12 gap-6 mb-8">
+<!-- Large Stats Block -->
+<div class="col-span-8 bg-[#F4F5F7] rounded-3xl p-8 flex flex-col justify-between">
+<div class="grid grid-cols-3 gap-8">
+<div>
+<p class="text-gray-500 text-sm mb-2">Revenue at Risk</p>
+<p class="text-4xl font-medium tracking-tight"><span class="text-xl text-gray-400 mr-1">₹</span>24,850.00</p>
+</div>
+<div>
+<p class="text-gray-500 text-sm mb-2">AI Recovered</p>
+<p class="text-4xl font-medium tracking-tight"><span class="text-xl text-gray-400 mr-1">₹</span>11,420.00</p>
+</div>
+<div>
+<p class="text-gray-500 text-sm mb-2">Recovery Rate</p>
+<p class="text-4xl font-medium tracking-tight">45<span class="text-2xl text-gray-400 ml-1">.9%</span></p>
+</div>
+</div>
+<div class="mt-12">
+<div class="flex justify-between text-xs text-gray-500 mb-2 font-medium">
+<span>Sep</span>
+<span>Oct</span>
+<span>Nov</span>
+<span>Dec</span>
+</div>
+<div class="w-full h-3 bg-gray-200 rounded-full overflow-hidden flex">
+<div class="h-full bg-brand-yellow w-1/4 rounded-full border-r-2 border-white"></div>
+<div class="h-full progress-bar w-1/4 rounded-full border-r-2 border-white"></div>
+<div class="h-full bg-transparent w-1/4 border-r-2 border-white"></div>
+<div class="h-full bg-brand-yellow w-1/12 rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Secondary Stats Block -->
+<div class="col-span-4 bg-[#F4F5F7] rounded-3xl p-8 relative flex flex-col justify-between">
+<button class="absolute top-6 right-6 w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white text-gray-500">
+<span class="material-symbols-outlined text-[16px]" data-icon="arrow_outward">arrow_outward</span>
+</button>
+<div>
+<p class="text-gray-500 text-sm mb-2">Incremental Revenue</p>
+<div class="flex items-end gap-3">
+<p class="text-4xl font-medium tracking-tight"><span class="text-xl text-gray-400 mr-1">+₹</span>6,840.00</p>
+<span class="px-3 py-1 bg-white rounded-full text-xs font-semibold border border-gray-200 mb-1">Expected</span>
+</div>
+</div>
+<div class="mt-8 flex gap-2">
+<div class="bg-gray-200/50 rounded-xl p-4 flex-1">
+<p class="text-xs text-gray-500 mb-6">#4443</p>
+<p class="text-sm font-medium">Razorpay</p>
+</div>
+<div class="bg-brand-yellow rounded-xl p-4 flex-1 shadow-sm">
+<p class="text-xs text-brand-dark/70 mb-6 font-bold">#177210</p>
+<p class="text-sm font-bold text-brand-dark">UPI</p>
+</div>
+<div class="flex items-end ml-4">
+<button class="bg-brand-dark text-white rounded-full px-6 py-3 text-sm font-bold shadow-md hover:bg-black transition-colors">
+                            Pay out now
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Filters -->
+<div class="flex items-center gap-4 mb-6">
+<div class="flex items-center gap-2 font-bold text-sm">
+                Active filters <span class="w-5 h-5 rounded-full bg-brand-dark text-white text-[10px] flex items-center justify-center">2</span>
+</div>
+<button class="bg-white px-4 py-2 rounded-full text-xs font-medium text-gray-500 flex items-center gap-2 border border-gray-200">
+                All segments <span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</button>
+<button class="bg-white px-4 py-2 rounded-full text-xs font-medium text-gray-500 flex items-center gap-2 border border-gray-200">
+                All statuses <span class="material-symbols-outlined text-[16px]" data-icon="expand_more">expand_more</span>
+</button>
+<div class="ml-auto bg-white rounded-full border border-gray-200 flex items-center px-4 py-2 w-64">
+<input class="bg-transparent border-none outline-none text-xs w-full placeholder-gray-400 focus:ring-0 p-0" placeholder="Enter recovery ID #" type="text"/>
+<span class="material-symbols-outlined text-[18px] text-gray-400" data-icon="search">search</span>
+</div>
+</div>
+<!-- Main Dark Section -->
+<div class="bg-brand-dark rounded-[40px] flex-1 p-8 flex flex-col relative">
+<!-- Section Tabs -->
+<div class="absolute -top-6 left-1/2 -translate-x-1/2 bg-white rounded-full p-1.5 flex items-center shadow-sm border border-gray-200 z-20">
+<button class="px-6 py-2 rounded-full text-sm font-semibold text-gray-700">All Recoveries</button>
+<button class="px-6 py-2 rounded-full text-sm font-semibold text-gray-500 flex items-center gap-2">
+                    Pending <span class="bg-gray-100 px-2 py-0.5 rounded-full text-[10px]">3</span>
+</button>
+<button class="px-6 py-2 rounded-full text-sm font-bold bg-brand-yellow text-brand-dark flex items-center gap-2 shadow-sm">
+                    Action Required <span class="bg-white px-2 py-0.5 rounded-full text-[10px]">5</span>
+</button>
+</div>
+<div class="flex justify-between items-center mb-6 mt-4">
+<h2 class="text-white font-medium text-lg">Recovery Queue</h2>
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/10">
+<span class="material-symbols-outlined text-[20px]" data-icon="sort">sort</span>
+</button>
+<button class="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:bg-white/10">
+<span class="material-symbols-outlined text-[20px]" data-icon="more_vert">more_vert</span>
+</button>
+</div>
+</div>
+<div class="flex gap-8 flex-1">
+<!-- Left List -->
+<div class="w-1/3 flex flex-col gap-2">
+<!-- List Item 1 -->
+<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 cursor-pointer text-white/60">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" data-icon="credit_card_off">credit_card_off</span>
+</div>
+<div>
+<p class="text-sm font-medium text-white">#404-002</p>
+<p class="text-xs">Failed 2 days ago</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 rounded-full border border-white/20 text-[10px] uppercase tracking-wider">Unsent</span>
+<span class="text-lg font-light text-white/40">₹80,770.00</span>
+</div>
+</div>
+<!-- Active List Item (AI Rec) -->
+<div class="flex items-center justify-between p-4 rounded-2xl bg-brand-blue-gray/20 border border-brand-blue-gray/30 cursor-pointer text-white">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center">
+<span class="material-symbols-outlined text-sm" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<div>
+<p class="text-sm font-bold">#427-012</p>
+<p class="text-xs text-brand-yellow">High Probability</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 rounded-full bg-white text-brand-dark text-[10px] font-bold uppercase tracking-wider">Action</span>
+<span class="text-lg font-medium">₹53,154.00</span>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="flex items-center justify-between p-4 rounded-2xl hover:bg-white/5 cursor-pointer text-white/60">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-sm" data-icon="account_balance_wallet">account_balance_wallet</span>
+</div>
+<div>
+<p class="text-sm font-medium text-white">#424-112</p>
+<p class="text-xs">Abandoned checkout</p>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 rounded-full border border-white/20 text-[10px] uppercase tracking-wider">Sent</span>
+<span class="text-lg font-light text-white/40">₹61,223.00</span>
+</div>
+</div>
+</div>
+<!-- Right Detail Panel -->
+<div class="w-2/3 bg-brand-blue-gray rounded-[32px] p-8 flex flex-col text-white relative overflow-hidden">
+<!-- Subtle background pattern/gradient could go here -->
+<div class="flex justify-between items-start mb-12">
+<div>
+<p class="text-white/70 text-xs mb-1">AI Recommendation Details</p>
+<div class="flex items-center gap-3">
+<h3 class="text-4xl font-medium tracking-tight">#427-012</h3>
+<span class="px-3 py-1 bg-white/20 rounded-full text-xs font-medium">Action Required</span>
+</div>
+</div>
+<div class="flex gap-16">
+<div>
+<p class="text-white/70 text-xs mb-1">Segment</p>
+<p class="font-medium flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="group">group</span>
+                                    High-Value Retries
+                                </p>
+</div>
+<div>
+<p class="text-white/70 text-xs mb-1">Probability</p>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-bold text-xs">84%</div>
+<p class="font-medium text-sm">Est. Success</p>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-4 mb-8">
+<div class="bg-brand-blue-gray-light/40 rounded-2xl p-6 relative">
+<span class="material-symbols-outlined absolute top-4 right-4 text-white/50 text-[16px]" data-icon="call_made">call_made</span>
+<p class="text-2xl font-medium mb-4"><span class="text-sm opacity-70">₹</span>10,630.80</p>
+<p class="text-xs text-white/70">Potential UPI Recovery</p>
+</div>
+<div class="bg-brand-blue-gray-light/40 rounded-2xl p-6 relative">
+<span class="material-symbols-outlined absolute top-4 right-4 text-white/50 text-[16px]" data-icon="call_made">call_made</span>
+<p class="text-2xl font-medium mb-4"><span class="text-sm opacity-70">₹</span>31,892.40</p>
+<p class="text-xs text-white/70">Card Retry Value</p>
+</div>
+<div class="bg-brand-blue-gray-light/20 rounded-2xl p-6 flex flex-col items-center justify-center border border-dashed border-white/30 cursor-pointer hover:bg-white/5 transition-colors">
+<span class="material-symbols-outlined text-white/50 mb-2" data-icon="add">add</span>
+<p class="text-xs text-white/50">View all segments</p>
+</div>
+</div>
+<!-- Quote/Insight -->
+<div class="bg-white/10 rounded-2xl p-6 mb-auto border-l-4 border-brand-yellow">
+<p class="font-medium italic text-lg leading-relaxed">
+                            "Prioritize UPI recovery for failed ₹1,000–₹5,000 payments. Customers in this segment have historically recovered more successfully through UPI."
+                        </p>
+</div>
+<div class="mt-8 flex items-end justify-between border-t border-white/20 pt-6">
+<div class="flex gap-12">
+<div>
+<p class="text-white/60 text-xs mb-1">Total Recoverable</p>
+<p class="text-xl font-medium"><span class="text-sm opacity-70">₹</span>1.82L</p>
+</div>
+<div>
+<p class="text-white/60 text-xs mb-1">Target Amount</p>
+<p class="text-xl font-medium"><span class="text-sm opacity-70">₹</span>53,154.00</p>
+</div>
+<div>
+<p class="text-white/60 text-xs mb-1">Expected Yield</p>
+<p class="text-xl font-medium text-brand-yellow"><span class="text-sm opacity-70">₹</span>44,649.00</p>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-12 h-12 rounded-xl border border-white/30 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+</button>
+<button class="w-12 h-12 rounded-xl border border-white/30 flex items-center justify-center hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined text-[20px]" data-icon="save">save</span>
+</button>
+<button class="bg-brand-yellow text-brand-dark px-8 py-3.5 rounded-xl font-bold text-sm shadow-lg hover:bg-yellow-300 transition-colors flex items-center gap-2">
+                                Review Recovery
+                                <span class="material-symbols-outlined text-[18px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

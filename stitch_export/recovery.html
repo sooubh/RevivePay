@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RevenueOS - Recovery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed-variant": "#414c00",
+                      "tertiary-container": "#191e00",
+                      "inverse-primary": "#c8c6c5",
+                      "surface-dim": "#d9dadd",
+                      "on-tertiary": "#ffffff",
+                      "on-tertiary-container": "#7a8c00",
+                      "primary-fixed-dim": "#c8c6c5",
+                      "surface-bright": "#f8f9fc",
+                      "on-surface": "#191c1e",
+                      "on-tertiary-fixed": "#191e00",
+                      "surface-container-highest": "#e1e2e5",
+                      "tertiary": "#000000",
+                      "on-secondary": "#ffffff",
+                      "on-primary-container": "#858383",
+                      "outline-variant": "#c4c7c7",
+                      "error-container": "#ffdad6",
+                      "surface-tint": "#5f5e5e",
+                      "on-error-container": "#93000a",
+                      "surface-container-lowest": "#ffffff",
+                      "on-primary-fixed-variant": "#474646",
+                      "on-background": "#191c1e",
+                      "tertiary-fixed": "#d6ee52",
+                      "inverse-surface": "#2e3133",
+                      "surface-container-low": "#f2f3f6",
+                      "outline": "#747878",
+                      "on-secondary-fixed-variant": "#481bc6",
+                      "on-secondary-container": "#fffbff",
+                      "surface-container": "#edeef1",
+                      "primary": "#000000",
+                      "background": "#e5e5e5", /* Updated background to match reference */
+                      "secondary-container": "#7858f5",
+                      "secondary": "#5e3bdb",
+                      "on-primary": "#ffffff",
+                      "secondary-fixed-dim": "#cabeff",
+                      "surface-variant": "#e1e2e5",
+                      "on-error": "#ffffff",
+                      "secondary-fixed": "#e6deff",
+                      "on-secondary-fixed": "#1c0062",
+                      "surface-container-high": "#e7e8eb",
+                      "inverse-on-surface": "#f0f1f4",
+                      "on-surface-variant": "#444748",
+                      "primary-fixed": "#e5e2e1",
+                      "on-primary-fixed": "#1c1b1b",
+                      "surface": "#f4f7fb", /* Updated surface to match reference container */
+                      "tertiary-fixed-dim": "#bad237",
+                      "primary-container": "#1c1b1b",
+                      "error": "#ba1a1a",
+                      "ref-dark": "#2a2a2a", /* Added from reference */
+                      "ref-accent": "#d6ee52", /* Added from reference */
+                      "ref-accent-hover": "#c5e128",
+                      "ref-panel": "#a2b4c1", /* Added from reference detail panel */
+                      "ref-panel-dark": "#8a9ba7"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "2xl": "1.5rem",
+                      "3xl": "2rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "gutter": "1.5rem",
+                      "card-gap": "2rem",
+                      "container-padding": "2rem",
+                      "section-margin": "3rem"
+              },
+              "fontFamily": {
+                      "headline-sm": [
+                              "Manrope"
+                      ],
+                      "headline-md-mobile": [
+                              "Manrope"
+                      ],
+                      "label-md": [
+                              "JetBrains Mono"
+                      ],
+                      "body-md": [
+                              "Manrope"
+                      ],
+                      "display-lg": [
+                              "Manrope"
+                      ],
+                      "body-lg": [
+                              "Manrope"
+                      ],
+                      "headline-md": [
+                              "Manrope"
+                      ]
+              },
+              "fontSize": {
+                      "headline-sm": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "headline-md-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-md": [
+                              "13px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.02em",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "body-md": [
+                              "15px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "display-lg": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "600"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .shimmer {
+            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 50%, rgba(255,255,255,0) 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+      </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen antialiased flex flex-col items-center p-8">
+<!-- Main App Container -->
+<div class="w-full max-w-[1440px] bg-surface rounded-[2rem] shadow-xl overflow-hidden min-h-[90vh] flex flex-col relative pb-8">
+<!-- Top Navigation Bar -->
+<nav class="flex items-center justify-between w-full px-8 py-6">
+<div class="flex items-center gap-12">
+<span class="font-headline-sm text-headline-sm font-bold text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-3xl">star</span>
+                RevenueOS
+            </span>
+<div class="hidden md:flex bg-ref-dark rounded-full p-1.5 items-center">
+<a class="text-white/70 hover:text-white px-6 py-2 transition-colors font-label-md text-label-md rounded-full" href="#">Overview</a>
+<a class="text-ref-dark bg-ref-accent rounded-full px-6 py-2 font-semibold font-label-md text-label-md transition-transform duration-150" href="#">Recovery</a>
+<a class="text-white/70 hover:text-white px-6 py-2 transition-colors font-label-md text-label-md rounded-full" href="#">Analytics</a>
+<a class="text-white/70 hover:text-white px-6 py-2 transition-colors font-label-md text-label-md rounded-full" href="#">Audit</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="hidden lg:flex items-center gap-4 px-4 py-2 bg-white rounded-full shadow-sm">
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="grid_view">grid_view</span>
+</button>
+<button class="p-1 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl" data-icon="notifications">notifications</span>
+</button>
+<div class="w-px h-5 bg-outline-variant/50"></div>
+<button class="w-8 h-8 rounded-full overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOFEhsfg76zR6EJzX7UE9lvtxS-vFuzXfOPuPcwvlczIgyzxDCgrt7YbhaLXlY9w2R-FDlkYgRHE2v9aawtUeNgbu1CBcl0UbqMr4CztVSod2iyVjeAs6E2LBmz6_2ice4itO46ktI4aOYdM6TTmMUYVsMeh0ULn_P0B_O4q_VnmbGCAtnzWlF3nv9UuLG5Q3PXhrtEl5VQPnEY2nz5yF-xJfXm69Di4EqLVrHB6sG9H9gCieEsOJF"/>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content Container -->
+<main class="w-full px-8 flex-1 flex flex-col">
+<!-- Header Section -->
+<header class="mb-8 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 rounded-full border border-outline-variant/30 flex items-center justify-center bg-white text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-display-lg text-display-lg text-on-surface font-semibold">Recovery</h1>
+</div>
+</header>
+<!-- Recovery Dashboard Section (Integrated into the dark panel) -->
+<div class="bg-ref-dark rounded-[2.5rem] p-6 flex flex-col lg:flex-row gap-6 text-white min-h-[500px]">
+<!-- Left Column: Recovery Opportunities List -->
+<div class="w-full lg:w-5/12 flex flex-col">
+<div class="flex items-center justify-between px-4 mb-6">
+<h2 class="font-body-lg text-body-lg font-medium">Recovery Opportunities</h2>
+<div class="flex gap-2">
+<span class="px-4 py-1.5 rounded-full bg-white text-ref-dark font-label-md text-xs font-semibold">All Items</span>
+<span class="px-4 py-1.5 rounded-full bg-white/10 text-white font-label-md text-xs">Failed</span>
+<span class="px-4 py-1.5 rounded-full bg-ref-accent text-ref-dark font-label-md text-xs font-semibold flex items-center gap-1">
+                            Pending <span class="bg-ref-dark text-ref-accent w-4 h-4 rounded-full flex items-center justify-center text-[10px]">5</span>
+</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 pr-2 overflow-y-auto max-h-[600px]">
+<!-- List Item 1 (Selected) -->
+<div class="rounded-2xl p-4 bg-ref-panel text-ref-dark cursor-pointer transition-all flex items-center justify-between">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-white/20 border border-white/30 shrink-0">
+<img alt="User" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCXlFw174s92AeGpCwWtB3RBQ8pEj1gncyi7yJDvqxMa-VIMx7kzKE8IXvHXXqXNUIvNGDKe45exozikLx26BH_onpDofjXBTMUnX6WsXuvRCojis6kKNEE57VoAgMyPdzQrCko5yfRUEIETf-eZcCr1xzEEnVxVgbFVFRwWUzPoP88mpgH9sisyLKFqzRuG9qCwUv2aH6PogoI0ZgyI1dTuGVgFpvMzP1K47zZDCGgdBITpOA-QwDG"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md font-bold">TXN-8921-X</span>
+<span class="font-label-md text-xs opacity-80">Card declined</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 bg-white rounded-full font-label-md text-xs font-medium">High priority</span>
+<span class="font-body-lg font-medium">₹12,500.00</span>
+</div>
+</div>
+<!-- List Item 2 -->
+<div class="rounded-2xl p-4 bg-transparent hover:bg-white/5 border border-transparent hover:border-white/10 cursor-pointer transition-all flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0">
+<img alt="User" class="w-full h-full object-cover opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQ2fWSWkXKQ4-I8GMlJlgxHcsg7haC7Z_xmYS1yjWnZ9ztsabWwQawrsphlBnXfqVGf6qid6k5CXp8MKEDJHS_kjhgMhbVUq_DvEMqw_RSCh8104zrQDBAwzGu9SihG4XgLQAEVWWErzFPbLzeLHHXfO0ijMuCGb-ggSup411K6sHnFiOj1bmubPqB1F9xkFKbQ-CJ7SzNu3WUgXkA05cZoVAUD2GozzMLONypHva7H-mViCKUeRne"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-white/90">TXN-8922-Y</span>
+<span class="font-label-md text-xs text-white/50">UPI failure</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 border border-white/20 rounded-full font-label-md text-xs text-white/60">High priority</span>
+<span class="font-body-md text-white/70">₹4,999.00</span>
+</div>
+</div>
+<!-- List Item 3 -->
+<div class="rounded-2xl p-4 bg-transparent hover:bg-white/5 border border-transparent hover:border-white/10 cursor-pointer transition-all flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0">
+<img alt="User" class="w-full h-full object-cover opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8bNUd5PmOulD-JHFG5y8Wc1he2laKhOtD2FVXdoIjNaUx3KNCfPqVz3ebMszu8515n5M7wcbZy8l2_Ni4-zIWbidCgxvR8arPzALXluPAElgr1fD2hiNaa1Rjq1ijqeDFbirdcR1qXUhCs9HgpLfA0X1Qe3ZjwDNB5hmwgPKwG7Xnpn0Ih_2HLYV6qnx0eskMP9RwmLYVjBFWn0PKBhPhUYTcsooq6R_iNkojA1tzr4Tu2MTJYaLA"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-white/90">TXN-8923-Z</span>
+<span class="font-label-md text-xs text-white/50">Checkout abandoned</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 border border-white/20 rounded-full font-label-md text-xs text-white/60">Medium priority</span>
+<span class="font-body-md text-white/70">₹8,200.00</span>
+</div>
+</div>
+<!-- List Item 4 -->
+<div class="rounded-2xl p-4 bg-transparent hover:bg-white/5 border border-transparent hover:border-white/10 cursor-pointer transition-all flex items-center justify-between group">
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-white/10 shrink-0">
+<img alt="User" class="w-full h-full object-cover opacity-80 group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFMRExv8QVsgpRCN7eN6pVmIl9LSQwW47h4KhY2Ce5lJVOTIzKh7dTPZAZ6ksKvQ4oq2hcMX2GaefqxsN2f928ZsREPEazArK4du0A0HXrJL3wdQCyVuHqnz3ET4JTVgVrTgDCc1InY6QgsquZyc5DdZ2hqx93zQUcAk3NU6-lfAdDEBtvKwe6PdfGTqnJjuW8FrSQQMmQbP78R9MCfc2OZQofPENxAOVab7xfIO2JbFzxpmIa9nrC"/>
+</div>
+<div class="flex flex-col">
+<span class="font-body-md font-medium text-white/90">TXN-8924-W</span>
+<span class="font-label-md text-xs text-white/50">Subscription failed</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<span class="px-3 py-1 border border-white/20 rounded-full font-label-md text-xs text-white/60">Medium priority</span>
+<span class="font-body-md text-white/70">₹18,000.00</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column: AI Detail View (Styled like the reference panel) -->
+<div class="w-full lg:w-7/12 bg-ref-panel rounded-[2rem] p-8 text-ref-dark flex flex-col justify-between relative overflow-hidden">
+<!-- Top Section -->
+<div>
+<div class="flex justify-between items-start mb-8">
+<div>
+<span class="font-label-md text-xs text-ref-dark/70 mb-1 block">Decision details</span>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-ref-dark">smart_toy</span>
+<h2 class="font-headline-md text-3xl font-medium">TXN-8921-X</h2>
+<span class="px-3 py-1 bg-white/40 rounded-full font-label-md text-xs font-semibold">High Priority</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex flex-col items-end">
+<span class="font-label-md text-xs text-ref-dark/70">Customer</span>
+<span class="font-body-md font-semibold">Sarah Jenkins</span>
+<span class="font-label-md text-xs text-ref-dark/60">sarah.j@example.com</span>
+</div>
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/50">
+<img alt="Customer" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCHRaoggZJ1qDBeY0lRDZH6SqOthctICQHaqXZR944QZEehlp4U3RfsB9V6CfmdIMY8rA2sTgHADuMvhvezrMMsGJod8I0hebh8NbYeFAw8gcDRsJHfFAjvhnF90zQXf8qg68zuPpNk0Ib9-540LGYAGFs7cj77tK-Av27CQ_9onn17S0PUvpqUZVp7NvJ2iZbf1C5v0G_cdAwvJQhxuMpTqnovCI0oCtiT9JGtRLKrmBAubrXqexvo"/>
+</div>
+</div>
+</div>
+<!-- Details Grid -->
+<div class="grid grid-cols-2 gap-4 mb-8">
+<div class="bg-white/20 rounded-2xl p-5 border border-white/10 hover:bg-white/30 transition-colors">
+<span class="font-label-md text-xs text-ref-dark/70 block mb-2">Payment Amount</span>
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-2xl font-medium">₹12,500.00</span>
+<span class="material-symbols-outlined text-ref-dark/50 text-sm">north_east</span>
+</div>
+<span class="font-label-md text-xs text-ref-dark/60 mt-4 block">Card issuer decline</span>
+</div>
+<div class="bg-white/20 rounded-2xl p-5 border border-white/10 hover:bg-white/30 transition-colors">
+<span class="font-label-md text-xs text-ref-dark/70 block mb-2">Expected Recovery</span>
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-2xl font-medium">₹10,200.00</span>
+<span class="material-symbols-outlined text-ref-dark/50 text-sm">north_east</span>
+</div>
+<span class="font-label-md text-xs text-ref-dark/60 mt-4 block">Based on selected strategy</span>
+</div>
+</div>
+<!-- Strategies -->
+<div class="bg-white/20 rounded-2xl p-5 border border-white/10 relative overflow-hidden">
+<!-- Decorative background lines -->
+<div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, #000 10px, #000 11px);"></div>
+<div class="relative z-10">
+<span class="font-label-md text-xs text-ref-dark/70 block mb-4 uppercase tracking-wider">Strategies Evaluated</span>
+<div class="flex flex-col gap-3">
+<div class="flex items-center justify-between text-sm">
+<span class="font-body-md text-ref-dark/80">Retry now</span>
+<div class="flex items-center gap-3 w-3/5">
+<div class="flex-1 h-1.5 bg-ref-dark/10 rounded-full overflow-hidden">
+<div class="h-full bg-ref-dark/30 w-[31%]"></div>
+</div>
+<span class="font-label-md w-8 text-right text-ref-dark/70">31%</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-sm">
+<span class="font-body-md text-ref-dark/80">Retry later</span>
+<div class="flex items-center gap-3 w-3/5">
+<div class="flex-1 h-1.5 bg-ref-dark/10 rounded-full overflow-hidden">
+<div class="h-full bg-ref-dark/40 w-[61%]"></div>
+</div>
+<span class="font-label-md w-8 text-right text-ref-dark/70">61%</span>
+</div>
+</div>
+<div class="flex items-center justify-between text-sm font-medium">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+<span>Alternate UPI</span>
+</div>
+<div class="flex items-center gap-3 w-3/5">
+<div class="flex-1 h-2 bg-ref-dark/20 rounded-full overflow-hidden">
+<div class="h-full bg-ref-dark w-[82%] relative rounded-full">
+<div class="absolute inset-0 shimmer bg-white/20"></div>
+</div>
+</div>
+<span class="font-label-md w-8 text-right font-bold">82%</span>
+</div>
+</div>
+</div>
+<p class="font-body-md text-sm italic text-ref-dark/80 mt-4 pt-4 border-t border-ref-dark/10">
+                                "Higher estimated recovery with lower customer friction."
+                            </p>
+</div>
+</div>
+</div>
+<!-- Bottom Action Row -->
+<div class="flex items-center justify-between mt-8 pt-6 border-t border-ref-dark/10">
+<div class="flex gap-8">
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-ref-dark/70">Original Amount</span>
+<span class="font-body-lg font-medium">₹12,500.00</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-md text-xs text-ref-dark/70">Current Balance</span>
+<span class="font-body-lg font-medium">₹12,500.00</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<button class="w-10 h-10 rounded-full border border-ref-dark/20 flex items-center justify-center hover:bg-white/20 transition-colors">
+<span class="material-symbols-outlined text-sm">history</span>
+</button>
+<button class="w-10 h-10 rounded-full border border-ref-dark/20 flex items-center justify-center hover:bg-white/20 transition-colors">
+<span class="material-symbols-outlined text-sm">edit</span>
+</button>
+<button class="px-6 py-3 bg-ref-accent hover:bg-ref-accent-hover text-ref-dark rounded-full font-label-md text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-sm">
+                            Recover Payment
+                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
