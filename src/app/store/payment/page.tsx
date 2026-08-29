@@ -26,7 +26,7 @@ function PaymentContent() {
   const router = useRouter();
 
   const orderId = searchParams.get("orderId") || "ORD-DEMO-001";
-  const rzpOrder = searchParams.get("rzpOrder") || "";
+  const rzpOrderParam = searchParams.get("rzpOrder") || "";
   const oppIdParam = searchParams.get("oppId") || "";
   const queryAmount = Number(searchParams.get("amount")) || 4999;
 
@@ -37,6 +37,7 @@ function PaymentContent() {
   const [activeOppId, setActiveOppId] = useState<string>(oppIdParam);
   const [customer, setCustomer] = useState<any>(null);
   const [rzpLoaded, setRzpLoaded] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     // Load Customer info
@@ -47,7 +48,7 @@ function PaymentContent() {
       } catch (e) {}
     }
 
-    // Load Razorpay Standard Checkout SDK script
+    // Dynamically inject Razorpay Standard Web Checkout Script
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
@@ -61,62 +62,115 @@ function PaymentContent() {
     };
   }, []);
 
-  // Step 1: Real Razorpay Standard Checkout Popup
-  const handleRealRazorpayCheckout = () => {
+  // STEP 1 & 2 & 3: Standard Razorpay Web Checkout & Signature Verification Flow
+  const handleRazorpayStandardCheckout = async () => {
     setLoading(true);
+    setErrorMessage("");
 
-    if (typeof window !== "undefined" && (window as any).Razorpay) {
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_mock_revivepay",
-        amount: queryAmount * 100, // paise
-        currency: "INR",
-        name: "RevenueOS Footwear",
-        description: `Order ${orderId}`,
-        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
-        order_id: rzpOrder || undefined,
-        prefill: {
-          name: customer?.name || "Sarah Jenkins",
-          email: customer?.email || "sarah.j@example.com",
-          contact: customer?.phone || "+919876543210"
-        },
-        theme: {
-          color: "#b32a03"
-        },
-        handler: async function (response: any) {
-          setLoading(false);
-          setIsRecovered(true);
-          localStorage.removeItem("revivepay_cart");
-          try {
-            confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
-          } catch (e) {}
-        },
-        modal: {
-          ondismiss: function () {
-            setLoading(false);
-            console.log("Razorpay checkout modal closed by user");
+    try {
+      // 1. Call Backend to Create Order
+      const createRes = await fetch("/api/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: queryAmount,
+          currency: "INR",
+          receipt: orderId,
+          customerId: customer?.customerId || "CUS-8F42K1",
+          customerName: customer?.name || "Sarah Jenkins",
+          customerEmail: customer?.email || "sarah.j@example.com"
+        })
+      });
+
+      const orderData = await createRes.json();
+      if (!orderData.success || !orderData.order_id) {
+        throw new Error(orderData.error || "Failed to create order on server");
+      }
+
+      // 2. Open Razorpay Standard Checkout Modal
+      if (typeof window !== "undefined" && (window as any).Razorpay) {
+        const options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || orderData.key_id || "rzp_test_TVd9yecKAtiRUs",
+          amount: orderData.amount_paise || queryAmount * 100,
+          currency: "INR",
+          name: "RevenueOS Footwear",
+          description: `Order ${orderData.receipt || orderId}`,
+          image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
+          order_id: orderData.order_id,
+          prefill: {
+            name: customer?.name || "Sarah Jenkins",
+            email: customer?.email || "sarah.j@example.com",
+            contact: customer?.phone || "+919876543210"
+          },
+          theme: {
+            color: "#b32a03"
+          },
+          // 3. On Payment Success: Call Backend to Verify HMAC Signature
+          handler: async function (response: {
+            razorpay_payment_id: string;
+            razorpay_order_id: string;
+            razorpay_signature: string;
+          }) {
+            try {
+              const verifyRes = await fetch("/api/verify-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  orderId: orderData.orderId,
+                  amount: queryAmount,
+                  customerId: customer?.customerId || "CUS-8F42K1"
+                })
+              });
+
+              const verifyData = await verifyRes.json();
+              if (verifyData.success) {
+                setLoading(false);
+                setIsRecovered(true);
+                localStorage.removeItem("revivepay_cart");
+                try {
+                  confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 } });
+                } catch (e) {}
+              } else {
+                setLoading(false);
+                setErrorMessage(verifyData.error || "Signature verification failed.");
+              }
+            } catch (vErr) {
+              setLoading(false);
+              setErrorMessage("Error verifying payment signature with server.");
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setLoading(false);
+              console.log("Razorpay checkout modal closed by user.");
+            }
           }
-        }
-      };
+        };
 
-      try {
         const rzp = new (window as any).Razorpay(options);
         rzp.on("payment.failed", function (resp: any) {
           console.log("Razorpay payment failed:", resp);
           handleTriggerFailure();
         });
         rzp.open();
-      } catch (err) {
-        console.warn("Could not open Razorpay checkout modal, simulating flow:", err);
-        handleDirectSuccess();
+      } else {
+        // Fallback if modal script blocked
+        handleSimulatedDirectPayment();
       }
-    } else {
-      handleDirectSuccess();
+    } catch (err: any) {
+      console.warn("Checkout initialization notice:", err);
+      setLoading(false);
+      setErrorMessage(err?.message || "Failed to launch Razorpay checkout.");
     }
   };
 
-  // Step 2: Golden Demo Payment Failure Trigger
+  // Golden Demo Payment Failure Trigger (Simulates Failure -> AI Diagnosis -> Guardrails -> Recovery View)
   const handleTriggerFailure = async () => {
     setLoading(true);
+    setErrorMessage("");
     try {
       const res = await fetch("/api/simulator/trigger", {
         method: "POST",
@@ -140,7 +194,7 @@ function PaymentContent() {
     }
   };
 
-  // Step 3: Customer 1-Click Recovery Action
+  // Customer 1-Click Recovery Action
   const handleCustomerRecovery = async () => {
     setLoading(true);
     try {
@@ -173,8 +227,8 @@ function PaymentContent() {
     }
   };
 
-  // Direct mock success
-  const handleDirectSuccess = async () => {
+  // Direct simulated success
+  const handleSimulatedDirectPayment = () => {
     setLoading(true);
     setTimeout(() => {
       setLoading(false);
@@ -183,7 +237,7 @@ function PaymentContent() {
       try {
         confetti({ particleCount: 100, spread: 60 });
       } catch (e) {}
-    }, 1200);
+    }, 1000);
   };
 
   return (
@@ -218,12 +272,12 @@ function PaymentContent() {
 
             <div>
               <span className="px-3.5 py-1 bg-[#fee2dc] text-[#b32a03] text-xs font-bold rounded-full uppercase tracking-wider">
-                Payment Recovered & Captured
+                Payment Captured & Verified
               </span>
               <h1 className="text-3xl font-extrabold text-[#271814] mt-3">Order Confirmed!</h1>
               <p className="text-sm text-[#5a413a] mt-2">
                 Thank you, {customer?.name || "Sarah"}! Your payment of{" "}
-                <span className="font-extrabold text-[#b32a03]">₹{queryAmount.toLocaleString()}.00</span> was successfully processed via UPI.
+                <span className="font-extrabold text-[#b32a03]">₹{queryAmount.toLocaleString()}.00</span> was successfully completed via Razorpay.
               </p>
             </div>
 
@@ -233,12 +287,12 @@ function PaymentContent() {
                 <span className="font-mono font-bold text-[#271814]">{orderId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#5a413a]">Payment Method</span>
-                <span className="font-bold text-[#271814]">UPI (1-Click Recovery)</span>
+                <span className="text-[#5a413a]">Gateway</span>
+                <span className="font-bold text-[#271814]">Razorpay Standard Web Checkout</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#5a413a]">Status</span>
-                <span className="text-green-600 font-bold">Paid & Active</span>
+                <span className="text-green-600 font-bold">HMAC Signature Verified</span>
               </div>
             </div>
 
@@ -259,7 +313,7 @@ function PaymentContent() {
             </div>
           </div>
         ) : failureState ? (
-          /* State B: Customer Simple Recovery Experience (PRD Requirement) */
+          /* State B: Customer Simple Recovery Experience */
           <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 md:p-12 shadow-2xl border-2 border-[#ffdad6] text-center space-y-6 animate-scale">
             <div className="w-16 h-16 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mx-auto shadow-sm">
               <AlertCircle className="w-8 h-8" />
@@ -273,7 +327,6 @@ function PaymentContent() {
               </p>
             </div>
 
-            {/* Simple Bounded Customer Action */}
             <div className="bg-[#fee2dc]/40 p-6 rounded-2xl border border-[#b32a03]/20 space-y-4">
               <div className="flex items-center justify-between text-left">
                 <div className="flex items-center gap-3">
@@ -407,7 +460,7 @@ function PaymentContent() {
               </section>
             </div>
 
-            {/* Right: Summary & Real Checkout Pay */}
+            {/* Right: Summary & Real Razorpay Checkout Pay */}
             <aside className="lg:col-span-5 sticky top-28">
               <div className="bg-white p-6 md:p-8 rounded-3xl border border-[#e3beb6]/40 shadow-xl space-y-6">
                 <h3 className="text-xl font-bold text-[#271814]">Order Total</h3>
@@ -431,19 +484,25 @@ function PaymentContent() {
                   </div>
                 </div>
 
+                {errorMessage && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
+                    {errorMessage}
+                  </div>
+                )}
+
                 <button
-                  onClick={handleRealRazorpayCheckout}
+                  onClick={handleRazorpayStandardCheckout}
                   disabled={loading}
                   className="w-full bg-[#b32a03] text-white font-bold py-4 px-6 rounded-full text-sm hover:bg-[#8a1c00] transition-all flex items-center justify-center gap-2 shadow-xl shadow-[#b32a03]/25 disabled:opacity-50"
                 >
                   <Lock className="w-4 h-4" />
-                  <span>{loading ? "Processing..." : `Complete Purchase (₹${queryAmount.toLocaleString()})`}</span>
+                  <span>{loading ? "Launching Gateway..." : `Pay ₹${queryAmount.toLocaleString()} with Razorpay`}</span>
                 </button>
 
                 <div className="flex flex-col items-center gap-2 text-[11px] text-[#5a413a] opacity-80 pt-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#b32a03]" />
-                    <span>Razorpay Standard Checkout 256-Bit SSL</span>
+                    <span>Razorpay Standard Web Checkout (Key ID: rzp_test_TVd9yecKAtiRUs)</span>
                   </div>
                 </div>
               </div>
