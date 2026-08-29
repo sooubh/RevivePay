@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, Bell, LayoutDashboard, ShoppingBag, Sliders } from "lucide-react";
+import { Sparkles, Bell, LayoutDashboard, ShoppingBag } from "lucide-react";
 
 export default function MerchantNav() {
   const pathname = usePathname();
@@ -16,15 +16,15 @@ export default function MerchantNav() {
   ];
 
   return (
-    <nav className="w-full px-6 md:px-12 pt-8 pb-4 flex items-center justify-between z-10 relative">
+    <nav className="w-full px-6 md:px-12 xl:px-16 pt-8 pb-6 flex items-center justify-between z-10 relative">
       {/* Brand */}
-      <Link href="/merchant/overview" className="flex items-center gap-2 text-[#191c1e] hover:opacity-80 transition-opacity">
+      <Link href="/merchant/overview" className="flex items-center gap-2.5 text-[#191c1e] hover:opacity-80 transition-opacity">
         <span className="material-symbols-outlined text-2xl text-black">star</span>
-        <span className="font-extrabold text-xl tracking-tight">RevenueOS</span>
+        <span className="font-extrabold text-2xl tracking-tight">RevenueOS</span>
       </Link>
 
       {/* Center Nav Pill */}
-      <div className="bg-[#2a2a2a] text-white rounded-full flex items-center p-1.5 gap-1 text-sm font-medium shadow-lg">
+      <div className="bg-[#2a2a2a] text-white rounded-full flex items-center p-1.5 gap-1 text-sm font-medium shadow-xl">
         <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center ml-1 mr-1 text-[#D4FF00]">
           <LayoutDashboard className="w-4 h-4" />
         </span>
@@ -35,7 +35,7 @@ export default function MerchantNav() {
             <Link
               key={item.name}
               href={item.href}
-              className="px-5 py-2 bg-[#D4FF00] text-[#1c1b1b] rounded-full font-bold flex items-center gap-2 shadow-sm transition-all text-xs"
+              className="px-6 py-2.5 bg-[#D4FF00] text-[#1c1b1b] rounded-full font-bold flex items-center gap-2 shadow-sm transition-all text-xs"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#1c1b1b]"></span>
               <span>{item.name}</span>
@@ -56,10 +56,10 @@ export default function MerchantNav() {
       <div className="flex items-center gap-3">
         <Link
           href="/store"
-          className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 bg-white rounded-full border border-gray-300 text-xs font-bold text-[#191c1e] hover:bg-gray-50 transition-colors shadow-sm"
-          title="Open Customer Store"
+          className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white rounded-full border border-gray-300 text-xs font-bold text-[#191c1e] hover:bg-gray-50 transition-colors shadow-sm"
+          title="Open Customer Storefront"
         >
-          <ShoppingBag className="w-3.5 h-3.5 text-[#b32a03]" />
+          <ShoppingBag className="w-4 h-4 text-[#b32a03]" />
           <span>Customer Store</span>
         </Link>
 

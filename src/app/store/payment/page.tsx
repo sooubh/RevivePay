@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   ArrowRight,
   RefreshCw,
-  Sparkles
+  Sparkles,
+  ExternalLink
 } from "lucide-react";
 
 function PaymentContent() {
@@ -35,16 +36,85 @@ function PaymentContent() {
   const [failureState, setFailureState] = useState<any>(null);
   const [activeOppId, setActiveOppId] = useState<string>(oppIdParam);
   const [customer, setCustomer] = useState<any>(null);
+  const [rzpLoaded, setRzpLoaded] = useState(false);
 
   useEffect(() => {
+    // Load Customer info
     const savedCustomer = localStorage.getItem("revivepay_customer");
     if (savedCustomer) {
       try {
         setCustomer(JSON.parse(savedCustomer));
       } catch (e) {}
     }
+
+    // Load Razorpay Standard Checkout SDK script
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => setRzpLoaded(true);
+    document.body.appendChild(script);
+
+    return () => {
+      try {
+        document.body.removeChild(script);
+      } catch (e) {}
+    };
   }, []);
 
+  // Step 1: Real Razorpay Standard Checkout Popup
+  const handleRealRazorpayCheckout = () => {
+    setLoading(true);
+
+    if (typeof window !== "undefined" && (window as any).Razorpay) {
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_mock_revivepay",
+        amount: queryAmount * 100, // paise
+        currency: "INR",
+        name: "RevenueOS Footwear",
+        description: `Order ${orderId}`,
+        image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
+        order_id: rzpOrder || undefined,
+        prefill: {
+          name: customer?.name || "Sarah Jenkins",
+          email: customer?.email || "sarah.j@example.com",
+          contact: customer?.phone || "+919876543210"
+        },
+        theme: {
+          color: "#b32a03"
+        },
+        handler: async function (response: any) {
+          setLoading(false);
+          setIsRecovered(true);
+          localStorage.removeItem("revivepay_cart");
+          try {
+            confetti({ particleCount: 120, spread: 70, origin: { y: 0.6 } });
+          } catch (e) {}
+        },
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+            console.log("Razorpay checkout modal closed by user");
+          }
+        }
+      };
+
+      try {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on("payment.failed", function (resp: any) {
+          console.log("Razorpay payment failed:", resp);
+          handleTriggerFailure();
+        });
+        rzp.open();
+      } catch (err) {
+        console.warn("Could not open Razorpay checkout modal, simulating flow:", err);
+        handleDirectSuccess();
+      }
+    } else {
+      handleDirectSuccess();
+    }
+  };
+
+  // Step 2: Golden Demo Payment Failure Trigger
   const handleTriggerFailure = async () => {
     setLoading(true);
     try {
@@ -70,6 +140,7 @@ function PaymentContent() {
     }
   };
 
+  // Step 3: Customer 1-Click Recovery Action
   const handleCustomerRecovery = async () => {
     setLoading(true);
     try {
@@ -89,8 +160,8 @@ function PaymentContent() {
         localStorage.removeItem("revivepay_cart");
         try {
           confetti({
-            particleCount: 120,
-            spread: 70,
+            particleCount: 140,
+            spread: 80,
             origin: { y: 0.6 }
           });
         } catch (e) {}
@@ -102,6 +173,7 @@ function PaymentContent() {
     }
   };
 
+  // Direct mock success
   const handleDirectSuccess = async () => {
     setLoading(true);
     setTimeout(() => {
@@ -115,30 +187,31 @@ function PaymentContent() {
   };
 
   return (
-    <div className="bg-[#fff8f6] text-[#271814] font-sans min-h-screen flex flex-col relative overflow-x-hidden">
+    <div className="bg-[#fff8f6] text-[#271814] font-sans min-h-screen w-full flex flex-col relative overflow-x-hidden">
       <StoreHeader />
 
-      <main className="flex-grow pt-[110px] pb-24 px-6 md:px-16 max-w-[1200px] mx-auto w-full">
+      <main className="flex-grow pt-[110px] pb-24 px-6 md:px-12 xl:px-16 w-full max-w-[1440px] mx-auto">
         {/* Step Indicator */}
         <div className="flex items-center justify-center space-x-4 mb-10 text-xs font-bold uppercase tracking-wider">
           <div className="flex items-center text-[#5a413a]">
-            <span className="w-7 h-7 rounded-full bg-[#fee2dc] text-[#b32a03] flex items-center justify-center mr-2">1</span>
+            <span className="w-7 h-7 rounded-full bg-[#fee2dc] text-[#b32a03] flex items-center justify-center mr-2 font-black">1</span>
             <span>Information</span>
           </div>
           <div className="h-[2px] w-8 md:w-16 bg-[#b32a03]"></div>
           <div className="flex items-center text-[#b32a03]">
-            <span className="w-7 h-7 rounded-full bg-[#b32a03] text-white flex items-center justify-center mr-2 shadow-sm">2</span>
+            <span className="w-7 h-7 rounded-full bg-[#b32a03] text-white flex items-center justify-center mr-2 shadow-sm font-black">2</span>
             <span>Payment</span>
           </div>
           <div className="h-[2px] w-8 md:w-16 bg-[#e3beb6]/40"></div>
           <div className="flex items-center text-[#5a413a] opacity-60">
-            <span className="w-7 h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-2">3</span>
+            <span className="w-7 h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-2 font-black">3</span>
             <span>Confirmation</span>
           </div>
         </div>
 
+        {/* State A: Success Confirmation */}
         {isRecovered ? (
-          <div className="max-w-xl mx-auto bg-white rounded-3xl p-10 shadow-2xl border border-[#e3beb6]/40 text-center space-y-6 animate-scale">
+          <div className="max-w-xl mx-auto bg-white rounded-3xl p-10 md:p-12 shadow-2xl border border-[#e3beb6]/40 text-center space-y-6 animate-scale">
             <div className="w-20 h-20 rounded-full bg-[#D4FF00] text-black flex items-center justify-center mx-auto shadow-lg">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -186,19 +259,21 @@ function PaymentContent() {
             </div>
           </div>
         ) : failureState ? (
-          <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 md:p-10 shadow-2xl border-2 border-[#ffdad6] text-center space-y-6 animate-scale">
+          /* State B: Customer Simple Recovery Experience (PRD Requirement) */
+          <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 md:p-12 shadow-2xl border-2 border-[#ffdad6] text-center space-y-6 animate-scale">
             <div className="w-16 h-16 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mx-auto shadow-sm">
               <AlertCircle className="w-8 h-8" />
             </div>
 
             <div>
-              <h2 className="text-2xl font-extrabold text-[#271814]">We couldn't complete your payment.</h2>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-[#271814]">We couldn't complete your payment.</h2>
               <p className="text-sm text-[#5a413a] mt-2">
                 Try another payment method to complete your order for{" "}
                 <span className="font-bold text-[#271814]">₹{queryAmount.toLocaleString()}.00</span>.
               </p>
             </div>
 
+            {/* Simple Bounded Customer Action */}
             <div className="bg-[#fee2dc]/40 p-6 rounded-2xl border border-[#b32a03]/20 space-y-4">
               <div className="flex items-center justify-between text-left">
                 <div className="flex items-center gap-3">
@@ -230,11 +305,14 @@ function PaymentContent() {
             </div>
           </div>
         ) : (
+          /* State C: Payment Selection & Test Gateway */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Left: Payment Options */}
             <div className="lg:col-span-7 space-y-6">
               <section className="bg-white p-6 md:p-8 rounded-3xl border border-[#e3beb6]/40 shadow-sm space-y-4">
                 <h2 className="text-xl font-bold text-[#271814] mb-2">Select Payment Method</h2>
 
+                {/* Option 1: UPI */}
                 <label
                   onClick={() => setPaymentMethod("upi")}
                   className={`flex items-start p-4 rounded-2xl border cursor-pointer transition-all ${
@@ -258,6 +336,7 @@ function PaymentContent() {
                   </div>
                 </label>
 
+                {/* Option 2: Card */}
                 <label
                   onClick={() => setPaymentMethod("card")}
                   className={`flex items-start p-4 rounded-2xl border cursor-pointer transition-all ${
@@ -281,6 +360,7 @@ function PaymentContent() {
                   </div>
                 </label>
 
+                {/* Option 3: Netbanking */}
                 <label
                   onClick={() => setPaymentMethod("netbanking")}
                   className={`flex items-start p-4 rounded-2xl border cursor-pointer transition-all ${
@@ -305,12 +385,13 @@ function PaymentContent() {
                 </label>
               </section>
 
-              <section className="bg-[#2a2a2a] text-white p-6 rounded-3xl shadow-xl border border-white/10 space-y-3">
+              {/* Demo Golden Path Trigger Card */}
+              <section className="bg-[#2a2a2a] text-white p-6 md:p-8 rounded-3xl shadow-xl border border-white/10 space-y-4">
                 <div className="flex items-center gap-2 text-[#D4FF00]">
                   <Sparkles className="w-4 h-4" />
                   <span className="text-xs font-bold uppercase tracking-wider">Golden Demo Flow</span>
                 </div>
-                <h3 className="font-bold text-base text-white">Simulate Payment Failure & AI Recovery</h3>
+                <h3 className="font-bold text-lg text-white">Simulate Payment Failure & AI Recovery</h3>
                 <p className="text-xs text-white/70 leading-relaxed">
                   Triggers real backend failure ingestion, runs Gemini Failure Analyst & Recovery Predictor, verifies Guardrails, updates Merchant Command Center in realtime, and presents customer recovery.
                 </p>
@@ -326,6 +407,7 @@ function PaymentContent() {
               </section>
             </div>
 
+            {/* Right: Summary & Real Checkout Pay */}
             <aside className="lg:col-span-5 sticky top-28">
               <div className="bg-white p-6 md:p-8 rounded-3xl border border-[#e3beb6]/40 shadow-xl space-y-6">
                 <h3 className="text-xl font-bold text-[#271814]">Order Total</h3>
@@ -350,7 +432,7 @@ function PaymentContent() {
                 </div>
 
                 <button
-                  onClick={handleDirectSuccess}
+                  onClick={handleRealRazorpayCheckout}
                   disabled={loading}
                   className="w-full bg-[#b32a03] text-white font-bold py-4 px-6 rounded-full text-sm hover:bg-[#8a1c00] transition-all flex items-center justify-center gap-2 shadow-xl shadow-[#b32a03]/25 disabled:opacity-50"
                 >
@@ -361,7 +443,7 @@ function PaymentContent() {
                 <div className="flex flex-col items-center gap-2 text-[11px] text-[#5a413a] opacity-80 pt-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#b32a03]" />
-                    <span>Razorpay Secured 256-Bit Encryption</span>
+                    <span>Razorpay Standard Checkout 256-Bit SSL</span>
                   </div>
                 </div>
               </div>
@@ -383,4 +465,3 @@ export default function PaymentPage() {
     </Suspense>
   );
 }
-
