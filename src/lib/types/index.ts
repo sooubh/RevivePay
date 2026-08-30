@@ -164,6 +164,11 @@ export interface RecoveryPredictionResult {
   keyDrivers: string[];
 }
 
+/**
+ * RecoveryDecision represents the AI multi-agent diagnostic & evaluation output.
+ * Architecture Note: Intentionally embedded within `RecoveryOpportunity.decision` in Firestore
+ * (1:1 atomic coupling; avoids redundant network reads and prevents orphaned records).
+ */
 export interface RecoveryDecision {
   decisionId: string;
   opportunityId: string;
@@ -241,6 +246,7 @@ export interface AuditLog {
   actorType: 'SYSTEM' | 'AI_AGENT' | 'GUARDRAIL_ENGINE' | 'MERCHANT' | 'CUSTOMER';
   agentName?: 'FailureAnalyst' | 'RecoveryPredictor' | 'StrategyAgent' | 'RecoveryExplainer' | 'RecoveryOrchestrator';
   eventType:
+    | 'PAYMENT_SUCCEEDED'
     | 'PAYMENT_FAILED'
     | 'CONTEXT_ANALYZED'
     | 'RECOVERY_PROBABILITY_ESTIMATED'

@@ -15,7 +15,6 @@ import {
   ChevronDown,
   CreditCard,
   QrCode,
-  Sparkles,
   CheckCircle2,
   AlertTriangle,
   Clock,
@@ -128,7 +127,7 @@ export default function MerchantOverviewPage() {
                 <span>Sep (₹9.2k)</span>
                 <span>Oct (₹10.8k)</span>
                 <span>Nov (₹12.4k)</span>
-                <span>Dec (Live)</span>
+                <span>Dec (₹{(((metrics?.aiRecovered || 11420)) / 1000).toFixed(1)}k Live)</span>
               </div>
               <div className="w-full h-3.5 bg-gray-200 rounded-full overflow-hidden flex shadow-inner">
                 <div className="h-full bg-[#D4FF00] w-1/4 rounded-full border-r-2 border-white"></div>
@@ -258,7 +257,10 @@ export default function MerchantOverviewPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start w-full">
             {/* Left Queue List (5 Cols) */}
             <div className="lg:col-span-5 flex flex-col gap-2.5 max-h-[520px] overflow-y-auto pr-1">
-              {filteredOpps.map((opp) => {
+              {filteredOpps.length === 0 ? (
+                <div className="p-8 text-center text-white/50 text-xs">No recovery opportunities match the current filter.</div>
+              ) : (
+                filteredOpps.map((opp) => {
                 const isSelected = activeFocus?.opportunityId === opp.opportunityId;
                 return (
                   <div
@@ -310,7 +312,7 @@ export default function MerchantOverviewPage() {
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
 
             {/* Right Focused AI Recommendation Card (7 Cols) */}

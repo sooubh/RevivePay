@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Products Catalog: Publicly readable; writes restricted to backend
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 2. Customers: Readable by prototype storefront; writes handled via /api/customer
+    match /customers/{customerId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 3. Orders: Readable for checkout; writes restricted to /api/create-order and webhooks
+    match /orders/{orderId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 4. Payments: Privileged financial records; writes strictly server-side
+    match /payments/{paymentId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 5. Recovery Opportunities: Realtime listener access for merchant dashboard & payment recovery card
+    match /recovery_opportunities/{opportunityId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 6. Recovery Actions: Internal execution records
+    match /recovery_actions/{actionId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 7. Recovery Outcomes: Financial recovery conversion records
+    match /recovery_outcomes/{outcomeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 8. Audit Logs: Append-only ledger; client writes strictly blocked to prevent tampering
+    match /audit_logs/{logId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 9. Merchant Policies: Guardrail parameters & stopping rules
+    match /merchant_policies/{policyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Default Fallback: Block all other undefined collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

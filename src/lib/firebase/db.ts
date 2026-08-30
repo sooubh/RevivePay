@@ -18,16 +18,44 @@ import {
 export const dbService = {
   // Products
   getProducts: async (): Promise<Product[]> => {
-    return store.getProducts();
+    const local = store.getProducts();
+    if (local && local.length > 0) {
+      return local;
+    }
+    const remote = await firestoreSync.getProducts();
+    if (remote && remote.length > 0) {
+      remote.forEach(p => store.setProduct(p));
+      return store.getProducts();
+    }
+    // If remote is empty, seed defaults to Firestore asynchronously
+    const defaults = store.getProducts();
+    if (defaults.length > 0) {
+      firestoreSync.saveProducts(defaults).catch(() => {});
+    }
+    return defaults;
   },
 
   getProductById: async (id: string): Promise<Product | null> => {
-    return store.getProductById(id) || null;
+    const local = store.getProductById(id);
+    if (local) return local;
+    const remote = await firestoreSync.getProduct(id);
+    if (remote) {
+      store.setProduct(remote);
+      return remote;
+    }
+    return null;
   },
 
   // Customers
   getCustomerById: async (id: string): Promise<Customer | null> => {
-    return store.getCustomer(id) || null;
+    const local = store.getCustomer(id);
+    if (local) return local;
+    const remote = await firestoreSync.getCustomer(id);
+    if (remote) {
+      store.setCustomer(remote);
+      return remote;
+    }
+    return null;
   },
 
   createCustomer: async (customer: Customer): Promise<Customer> => {
@@ -44,35 +72,100 @@ export const dbService = {
   },
 
   getOrderById: async (id: string): Promise<Order | null> => {
-    return store.getOrder(id) || null;
+    const local = store.getOrder(id);
+    if (local) return local;
+    const remote = await firestoreSync.getOrder(id);
+    if (remote) {
+      store.createOrder(remote);
+      return remote;
+    }
+    return null;
   },
 
   updateOrder: async (id: string, updates: Partial<Order>): Promise<Order | null> => {
     const res = store.updateOrder(id, updates) || null;
-    if (res) firestoreSync.saveOrder(res).catch(() => {});
-    return res;
+    if (res) {
+      firestoreSync.saveOrder(res).catch(() => {});
+      return res;
+    }
+    // If not in local memory on cold start, fetch from Firestore, update, and persist
+    const remote = await firestoreSync.getOrder(id);
+    if (remote) {
+      const updated = { ...remote, ...updates, updatedAt: new Date().toISOString() };
+      store.createOrder(updated);
+      firestoreSync.saveOrder(updated).catch(() => {});
+      return updated;
+    }
+    return null;
   },
 
   // Payments
   createPayment: async (payment: Payment): Promise<Payment> => {
-    return store.createPayment(payment);
+    const res = store.createPayment(payment);
+    firestoreSync.savePayment(res).catch(() => {});
+    return res;
   },
 
   getPaymentById: async (id: string): Promise<Payment | null> => {
-    return store.getPayment(id) || null;
+    const local = store.getPayment(id);
+    if (local) return local;
+    const remote = await firestoreSync.getPayment(id);
+    if (remote) {
+      store.createPayment(remote);
+      return remote;
+    }
+    return null;
   },
 
   updatePayment: async (id: string, updates: Partial<Payment>): Promise<Payment | null> => {
-    return store.updatePayment(id, updates) || null;
+    const res = store.updatePayment(id, updates) || null;
+    if (res) {
+      firestoreSync.savePayment(res).catch(() => {});
+      return res;
+    }
+    const remote = await firestoreSync.getPayment(id);
+    if (remote) {
+      const updated = { ...remote, ...updates, updatedAt: new Date().toISOString() };
+      store.createPayment(updated);
+      firestoreSync.savePayment(updated).catch(() => {});
+      return updated;
+    }
+    return null;
   },
 
   // Recovery Opportunities
   getRecoveryOpportunities: async (): Promise<RecoveryOpportunity[]> => {
+    const remote = await firestoreSync.getOpportunities();
+    if (remote && remote.length > 0) {
+      remote.forEach(o => store.setRecoveryOpportunity(o));
+      return store.getRecoveryOpportunities();
+    }
     return store.getRecoveryOpportunities();
   },
 
   getRecoveryOpportunityById: async (id: string): Promise<RecoveryOpportunity | null> => {
-    return store.getRecoveryOpportunity(id) || null;
+    const local = store.getRecoveryOpportunity(id);
+    if (local) return local;
+    const remote = await firestoreSync.getOpportunity(id);
+    if (remote) {
+      store.setRecoveryOpportunity(remote);
+      return remote;
+    }
+    return null;
+  },
+
+  getRecoveryOpportunityByPaymentId: async (paymentId: string): Promise<RecoveryOpportunity | null> => {
+    // Check in-memory store
+    const localOpps = store.getRecoveryOpportunities();
+    const local = localOpps.find(o => o.paymentId === paymentId);
+    if (local) return local;
+    // Check Firestore
+    const remote = await firestoreSync.getOpportunityByPaymentId(paymentId);
+    if (remote) {
+      store.setRecoveryOpportunity(remote);
+      return remote;
+    }
+    return null;
   },
 
   createRecoveryOpportunity: async (opp: RecoveryOpportunity): Promise<RecoveryOpportunity> => {
@@ -83,25 +176,60 @@ export const dbService = {
 
   updateRecoveryOpportunity: async (id: string, updates: Partial<RecoveryOpportunity>): Promise<RecoveryOpportunity | null> => {
     const res = store.updateRecoveryOpportunity(id, updates) || null;
-    if (res) firestoreSync.saveOpportunity(res).catch(() => {});
-    return res;
+    if (res) {
+      firestoreSync.saveOpportunity(res).catch(() => {});
+      return res;
+    }
+    const remote = await firestoreSync.getOpportunity(id);
+    if (remote) {
+      const updated = { ...remote, ...updates, updatedAt: new Date().toISOString() };
+      store.setRecoveryOpportunity(updated);
+      firestoreSync.saveOpportunity(updated).catch(() => {});
+      return updated;
+    }
+    return null;
   },
 
   // Decisions & Actions
   createRecoveryDecision: async (decision: RecoveryDecision): Promise<RecoveryDecision> => {
-    return store.setRecoveryDecision(decision);
+    const res = store.setRecoveryDecision(decision);
+    firestoreSync.saveDecision(decision).catch(() => {});
+    return res;
   },
 
   getRecoveryDecisionById: async (id: string): Promise<RecoveryDecision | null> => {
-    return store.getRecoveryDecision(id) || null;
+    const local = store.getRecoveryDecision(id);
+    if (local) return local;
+    const remote = await firestoreSync.getDecision(id);
+    if (remote) {
+      store.setRecoveryDecision(remote);
+      return remote;
+    }
+    return null;
   },
 
   createRecoveryAction: async (action: RecoveryAction): Promise<RecoveryAction> => {
-    return store.setRecoveryAction(action);
+    const res = store.setRecoveryAction(action);
+    firestoreSync.saveAction(action).catch(() => {});
+    return res;
+  },
+
+  getActionById: async (id: string): Promise<RecoveryAction | null> => {
+    const remote = await firestoreSync.getAction(id);
+    if (remote) return remote;
+    return null;
   },
 
   createRecoveryOutcome: async (outcome: RecoveryOutcome): Promise<RecoveryOutcome> => {
-    return store.setRecoveryOutcome(outcome);
+    const res = store.setRecoveryOutcome(outcome);
+    firestoreSync.saveOutcome(outcome).catch(() => {});
+    return res;
+  },
+
+  getOutcomeById: async (id: string): Promise<RecoveryOutcome | null> => {
+    const remote = await firestoreSync.getOutcome(id);
+    if (remote) return remote;
+    return null;
   },
 
   // Audit Logs
@@ -112,16 +240,27 @@ export const dbService = {
   },
 
   getAuditLogs: async (): Promise<AuditLog[]> => {
+    const remote = await firestoreSync.getAuditLogs();
+    if (remote && remote.length > 0) {
+      return remote;
+    }
     return store.getAuditLogs();
   },
 
   // Policy
   getMerchantPolicy: async (): Promise<MerchantPolicy> => {
+    const remote = await firestoreSync.getMerchantPolicy();
+    if (remote) {
+      store.updateMerchantPolicy(remote);
+      return remote;
+    }
     return store.getMerchantPolicy();
   },
 
   updateMerchantPolicy: async (updates: Partial<MerchantPolicy>): Promise<MerchantPolicy> => {
-    return store.updateMerchantPolicy(updates);
+    const res = store.updateMerchantPolicy(updates);
+    firestoreSync.saveMerchantPolicy(res).catch(() => {});
+    return res;
   },
 
   // Metrics
@@ -147,7 +286,14 @@ export const dbService = {
   },
 
   subscribeOpportunityById: (id: string, cb: (data: RecoveryOpportunity | null) => void) => {
-    return store.subscribeOpportunityById(id, cb);
+    const unsubLocal = store.subscribeOpportunityById(id, cb);
+    const unsubRemote = firestoreSync.subscribeOpportunityById(id, (remoteOpp) => {
+      if (remoteOpp) cb(remoteOpp);
+    });
+    return () => {
+      unsubLocal();
+      unsubRemote();
+    };
   },
 
   subscribeAuditLogs: (cb: (data: AuditLog[]) => void) => {

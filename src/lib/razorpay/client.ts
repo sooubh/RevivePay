@@ -1,9 +1,9 @@
 import Razorpay from "razorpay";
 import crypto from "crypto";
 
-const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_TVd9yecKAtiRUs";
-const key_secret = process.env.RAZORPAY_KEY_SECRET || "XedLQmosLmMuthN7kvgYm7KB";
-const webhook_secret = process.env.RAZORPAY_WEBHOOK_SECRET || "mock_webhook_secret";
+const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+const key_secret = process.env.RAZORPAY_KEY_SECRET || "";
+const webhook_secret = process.env.RAZORPAY_WEBHOOK_SECRET || "";
 
 let razorpayInstance: Razorpay | null = null;
 try {
@@ -48,11 +48,14 @@ export function verifyPaymentSignature(params: {
 }
 
 /**
- * Verifies Razorpay Webhook signature HMAC SHA256
+ * Verifies Razorpay Webhook signature HMAC SHA256 strictly with the configured webhook secret.
+ * No test bypasses allowed in real webhook processing.
  */
 export function verifyWebhookSignature(payload: string, signature: string, secret: string = webhook_secret): boolean {
-  if (!signature) return false;
-  if (signature.startsWith("simulated_") || signature === "valid_test_signature") return true;
+  if (!signature || !secret || !payload) {
+    console.warn("Webhook verification failed: missing signature, secret, or payload");
+    return false;
+  }
 
   try {
     const expectedSignature = crypto
@@ -64,4 +67,12 @@ export function verifyWebhookSignature(payload: string, signature: string, secre
     console.error("Webhook signature verification error:", error);
     return false;
   }
+}
+
+/**
+ * Validates simulated test webhook signatures exclusively for internal simulator test harnesses.
+ */
+export function verifySimulatedWebhookSignature(signature: string): boolean {
+  if (!signature) return false;
+  return signature.startsWith("simulated_") || signature === "valid_test_signature";
 }

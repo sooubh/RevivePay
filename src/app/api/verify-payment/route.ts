@@ -51,8 +51,9 @@ export async function POST(req: NextRequest) {
     console.log(`[Razorpay] Payment ${razorpay_payment_id} verified successfully for order ${razorpay_order_id}`);
 
     // 3. Update Order state in database
-    if (orderId) {
-      await dbService.updateOrder(orderId, { status: "paid" });
+    const targetOrderId = orderId || razorpay_order_id;
+    if (targetOrderId) {
+      await dbService.updateOrder(targetOrderId, { status: "paid", razorpayOrderId: razorpay_order_id });
     }
 
     // 4. Create verified payment record
@@ -73,14 +74,39 @@ export async function POST(req: NextRequest) {
     await dbService.createPayment(paymentRecord);
 
     // 5. If this payment recovers an existing opportunity, process recovery success
+    let isRecovery = false;
     if (opportunityId) {
+      isRecovery = true;
       await RecoveryOrchestrator.processRecoverySuccess(opportunityId, "card");
     } else {
       // Check if matching pending opportunity exists
       const opps = await dbService.getRecoveryOpportunities();
       const match = opps.find(o => o.orderId === (orderId || razorpay_order_id) && o.status !== "recovered");
       if (match) {
+        isRecovery = true;
         await RecoveryOrchestrator.processRecoverySuccess(match.opportunityId, "card");
+      }
+    }
+
+    // 6. If normal first-time successful checkout, record PAYMENT_SUCCEEDED audit log
+    if (!isRecovery) {
+      await dbService.addAuditLog({
+        orderId: targetOrderId,
+        paymentId: razorpay_payment_id,
+        actorType: "CUSTOMER",
+        eventType: "PAYMENT_SUCCEEDED",
+        message: `Payment successful — ₹${(amount || 4999).toLocaleString()}.00 captured via Razorpay Standard Checkout`,
+        metadata: { amount: amount || 4999, razorpayPaymentId: razorpay_payment_id, razorpayOrderId: razorpay_order_id }
+      });
+
+      if (customerId) {
+        const cust = await dbService.getCustomerById(customerId);
+        if (cust) {
+          cust.successfulPayments = (cust.successfulPayments || 0) + 1;
+          cust.totalSpend = (cust.totalSpend || 0) + (amount || 4999);
+          cust.lastSeenAt = new Date().toISOString();
+          await dbService.createCustomer(cust);
+        }
       }
     }
 

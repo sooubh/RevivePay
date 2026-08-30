@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Clock,
-  Sparkles,
   Sliders,
   Filter,
   Search,
@@ -151,7 +150,10 @@ export default function MerchantAuditPage() {
 
             {/* Timeline Stream */}
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
-              {filteredLogs.map((log) => {
+              {filteredLogs.length === 0 ? (
+                <div className="p-8 text-center text-gray-400 text-xs">No audit events match the selected filter.</div>
+              ) : (
+                filteredLogs.map((log) => {
                 let badgeColor = "bg-gray-100 text-gray-800";
                 if (log.actorType === "AI_AGENT") badgeColor = "bg-[#D4FF00]/40 text-black";
                 else if (log.actorType === "GUARDRAIL_ENGINE") badgeColor = "bg-purple-100 text-purple-900";
@@ -187,7 +189,7 @@ export default function MerchantAuditPage() {
                     </p>
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
 

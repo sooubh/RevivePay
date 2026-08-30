@@ -11,7 +11,6 @@ import {
   ArrowLeft,
   Download,
   TrendingUp,
-  Sparkles,
   PieChart,
   BarChart3,
   CheckCircle2,
@@ -165,7 +164,7 @@ export default function MerchantAnalyticsPage() {
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
                     <span>UPI 1-Click Alternate Payment</span>
-                    <span className="text-[#5e3bdb]">65% of Total Recoveries (₹7,423)</span>
+                    <span className="text-[#5e3bdb]">65% of Total Recoveries (₹{Math.round(recovered * 0.65).toLocaleString()})</span>
                   </div>
                   <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-[#5e3bdb] rounded-full" style={{ width: "65%" }} />
@@ -175,7 +174,7 @@ export default function MerchantAnalyticsPage() {
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
                     <span>Instant Gateway Retry</span>
-                    <span className="text-gray-700">25% of Total Recoveries (₹2,855)</span>
+                    <span className="text-gray-700">25% of Total Recoveries (₹{Math.round(recovered * 0.25).toLocaleString()})</span>
                   </div>
                   <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-gray-800 rounded-full" style={{ width: "25%" }} />
@@ -185,7 +184,7 @@ export default function MerchantAnalyticsPage() {
                 <div>
                   <div className="flex justify-between text-xs font-bold mb-1">
                     <span>Smart Scheduled Retry (Delayed)</span>
-                    <span className="text-gray-700">10% of Total Recoveries (₹1,142)</span>
+                    <span className="text-gray-700">10% of Total Recoveries (₹{Math.round(recovered * 0.10).toLocaleString()})</span>
                   </div>
                   <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-gray-400 rounded-full" style={{ width: "10%" }} />
@@ -200,7 +199,7 @@ export default function MerchantAnalyticsPage() {
             {/* AI Key Insight Card */}
             <div className="bg-[#2a2a2a] text-white rounded-3xl p-8 shadow-xl border border-white/10 space-y-4 relative overflow-hidden">
               <div className="w-10 h-10 rounded-full bg-[#D4FF00] text-black flex items-center justify-center font-bold shadow-md">
-                <Sparkles className="w-5 h-5" />
+                <TrendingUp className="w-5 h-5" />
               </div>
               <h3 className="text-xl font-bold text-white">AI Strategy Insight</h3>
               <p className="text-xs text-white/80 leading-relaxed">

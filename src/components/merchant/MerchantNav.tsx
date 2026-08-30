@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles, Bell, LayoutDashboard, ShoppingBag } from "lucide-react";
+import { Bell, LayoutDashboard, ShoppingBag } from "lucide-react";
 
 export default function MerchantNav() {
   const pathname = usePathname();

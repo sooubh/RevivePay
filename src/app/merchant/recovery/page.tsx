@@ -14,7 +14,6 @@ import {
   CreditCard,
   QrCode,
   ShieldCheck,
-  Sparkles,
   RefreshCw,
   Sliders,
   CheckCircle2,
@@ -258,8 +257,8 @@ export default function MerchantRecoveryPage() {
                     </div>
 
                     <span className="px-3.5 py-1.5 bg-[#2a2a2a] text-[#D4FF00] rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{activeOpp.decision?.model || "gemini-1.5-pro"}</span>
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>{activeOpp.decision?.model || "gemini-2.5-flash"}</span>
                     </span>
                   </div>
 
@@ -306,41 +305,74 @@ export default function MerchantRecoveryPage() {
                     </div>
 
                     <div className="space-y-2.5">
-                      {/* Strategy 1: Retry Now */}
-                      <div>
-                        <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span>Retry now</span>
-                          <span className="font-mono text-gray-600">31%</span>
-                        </div>
-                        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-gray-400 rounded-full" style={{ width: "31%" }} />
-                        </div>
-                      </div>
-
-                      {/* Strategy 2: Delayed Retry */}
-                      <div>
-                        <div className="flex justify-between text-xs font-semibold mb-1">
-                          <span>Retry later (Smart Schedule)</span>
-                          <span className="font-mono text-gray-600">61%</span>
-                        </div>
-                        <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-gray-500 rounded-full" style={{ width: "61%" }} />
-                        </div>
-                      </div>
-
-                      {/* Strategy 3: Alternate UPI (Recommended) */}
-                      <div className="p-3 bg-[#D4FF00]/30 rounded-xl border border-[#D4FF00] relative overflow-hidden">
-                        <div className="flex justify-between text-xs font-extrabold text-black mb-1">
-                          <div className="flex items-center gap-1.5">
-                            <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
-                            <span>Alternate UPI (Selected)</span>
+                      {activeOpp.decision?.strategiesEvaluated && activeOpp.decision.strategiesEvaluated.length > 0 ? (
+                        activeOpp.decision.strategiesEvaluated.filter(s => s.strategy !== "do_nothing").slice(0, 3).map((strat) => {
+                          const isSelected = strat.strategy === (activeOpp.decision?.selectedStrategy || activeOpp.selectedStrategy);
+                          const probPercent = Math.round((strat.probability || 0) * 100);
+                          if (isSelected) {
+                            return (
+                              <div key={strat.strategy} className="p-3 bg-[#D4FF00]/30 rounded-xl border border-[#D4FF00] relative overflow-hidden">
+                                <div className="flex justify-between text-xs font-extrabold text-black mb-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
+                                    <span>{strat.label} (Selected)</span>
+                                  </div>
+                                  <span className="font-mono text-black">{probPercent}% Recovery Prob</span>
+                                </div>
+                                <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
+                                  <div className="h-full bg-[#2a2a2a] rounded-full" style={{ width: `${probPercent}%` }} />
+                                </div>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={strat.strategy}>
+                              <div className="flex justify-between text-xs font-semibold mb-1">
+                                <span>{strat.label}</span>
+                                <span className="font-mono text-gray-600">{probPercent}%</span>
+                              </div>
+                              <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div className="h-full bg-gray-400 rounded-full" style={{ width: `${probPercent}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <>
+                          <div>
+                            <div className="flex justify-between text-xs font-semibold mb-1">
+                              <span>Retry now</span>
+                              <span className="font-mono text-gray-600">31%</span>
+                            </div>
+                            <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-gray-400 rounded-full" style={{ width: "31%" }} />
+                            </div>
                           </div>
-                          <span className="font-mono text-black">82% Recovery Prob</span>
-                        </div>
-                        <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
-                          <div className="h-full bg-[#2a2a2a] rounded-full" style={{ width: "82%" }} />
-                        </div>
-                      </div>
+
+                          <div>
+                            <div className="flex justify-between text-xs font-semibold mb-1">
+                              <span>Retry later (Smart Schedule)</span>
+                              <span className="font-mono text-gray-600">61%</span>
+                            </div>
+                            <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div className="h-full bg-gray-500 rounded-full" style={{ width: "61%" }} />
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-[#D4FF00]/30 rounded-xl border border-[#D4FF00] relative overflow-hidden">
+                            <div className="flex justify-between text-xs font-extrabold text-black mb-1">
+                              <div className="flex items-center gap-1.5">
+                                <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
+                                <span>{activeOpp.recommendedAction || "Alternate UPI"} (Selected)</span>
+                              </div>
+                              <span className="font-mono text-black">{Math.round((activeOpp.recoveryProbability || 0.82) * 100)}% Recovery Prob</span>
+                            </div>
+                            <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
+                              <div className="h-full bg-[#2a2a2a] rounded-full" style={{ width: `${Math.round((activeOpp.recoveryProbability || 0.82) * 100)}%` }} />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -352,14 +384,24 @@ export default function MerchantRecoveryPage() {
                     </p>
 
                     <div className="flex flex-wrap gap-2 pt-1">
-                      <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
-                        ✓ Attempt {activeOpp.attemptCount} of 2 Max Retries
-                      </span>
-                      <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
-                        ✓ Amount ₹{activeOpp.amount.toLocaleString()} &lt; ₹20,000 Threshold
-                      </span>
+                      {activeOpp.decision?.guardrailNotes && activeOpp.decision.guardrailNotes.length > 0 ? (
+                        activeOpp.decision.guardrailNotes.map((note, nIdx) => (
+                          <span key={nIdx} className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
+                            ✓ {note}
+                          </span>
+                        ))
+                      ) : (
+                        <>
+                          <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
+                            ✓ Attempt {activeOpp.attemptCount} of 2 Max Retries
+                          </span>
+                          <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
+                            ✓ Amount ₹{activeOpp.amount.toLocaleString()} &lt; ₹20,000 Threshold
+                          </span>
+                        </>
+                      )}
                       <span className="px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-[10px] font-bold border border-purple-200">
-                        ✓ Auto-Execute Approved
+                        ✓ {activeOpp.decision?.guardrailOutcome || "AUTO_EXECUTE"} Approved
                       </span>
                     </div>
                   </div>

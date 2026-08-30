@@ -32,7 +32,21 @@ export class RecoveryOrchestrator {
     const { payment, order, customer, sourceType = "razorpay_failure", failureCode, failureReason } = input;
     const policy = await dbService.getMerchantPolicy();
 
-    const opportunityId = `TXN-${payment.paymentId.replace(/^pay_/, '').slice(0, 4).toUpperCase() || Date.now().toString().slice(-4)}`;
+    const paymentIdClean = payment.paymentId.replace(/^(pay_|PAY_)/, '').replace(/[^a-zA-Z0-9]/g, '');
+    const cleanSuffix = paymentIdClean.length >= 6 
+      ? paymentIdClean.slice(-8).toUpperCase()
+      : `${paymentIdClean.toUpperCase() || 'TXN'}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const opportunityId = `TXN-${cleanSuffix}`;
+
+    // Track customer failed payment count
+    if (payment.customerId) {
+      const cust = customer || (await dbService.getCustomerById(payment.customerId));
+      if (cust) {
+        cust.failedPayments = (cust.failedPayments || 0) + 1;
+        cust.lastSeenAt = new Date().toISOString();
+        await dbService.createCustomer(cust);
+      }
+    }
 
     // 1. Initial State: Create Opportunity in 'analyzing' state
     const priority = payment.amount >= 10000 ? "High Priority" : "Medium Priority";
@@ -174,7 +188,7 @@ export class RecoveryOrchestrator {
         recommendationReason: explanation,
         guardrailOutcome: guardrailResult.outcome,
         guardrailNotes: guardrailResult.notes,
-        model: analystModel || "gemini-1.5-pro",
+        model: analystModel || "gemini-2.5-flash",
         createdAt: new Date().toISOString()
       };
 
@@ -251,6 +265,11 @@ export class RecoveryOrchestrator {
     const opp = await dbService.getRecoveryOpportunityById(opportunityId);
     if (!opp) return null;
 
+    // Idempotency guard: If already recovered, return existing opportunity immediately without double-counting stats
+    if (opp.status === "recovered") {
+      return opp;
+    }
+
     // Update Opportunity Status to recovered
     const updatedOpp = await dbService.updateRecoveryOpportunity(opportunityId, {
       status: "recovered",
@@ -303,6 +322,6 @@ export class RecoveryOrchestrator {
       metadata: { amountRecovered: opp.amount, method: recoveredPaymentMethod, timeToRecovery: outcome.timeToRecoverySeconds }
     });
 
-    return updatedOpp;
+    return updatedOpp || opp;
   }
 }

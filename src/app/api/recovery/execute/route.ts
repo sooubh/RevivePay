@@ -65,3 +65,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to execute recovery action" }, { status: 500 });
   }
 }
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const opportunityId = searchParams.get("opportunityId") || searchParams.get("id");
+    if (!opportunityId) {
+      return NextResponse.json({ error: "Opportunity ID is required" }, { status: 400 });
+    }
+
+    const opp = await dbService.getRecoveryOpportunityById(opportunityId);
+    if (!opp) {
+      return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, opportunity: opp });
+  } catch (error) {
+    console.error("Error fetching opportunity:", error);
+    return NextResponse.json({ error: "Failed to fetch opportunity" }, { status: 500 });
+  }
+}

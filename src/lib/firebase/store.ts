@@ -48,9 +48,14 @@ class DataStore {
   }
 
   public static getInstance(): DataStore {
+    const globalRef = (globalThis as any)._revivepay_dataStore;
+    if (globalRef) {
+      return globalRef;
+    }
     if (!DataStore.instance) {
       DataStore.instance = new DataStore();
     }
+    (globalThis as any)._revivepay_dataStore = DataStore.instance;
     return DataStore.instance;
   }
 
@@ -300,7 +305,7 @@ class DataStore {
             "Within maximum retry limit (attempt 1 <= 2)",
             "Within auto-execute threshold (₹12,500 <= ₹20,000)"
           ],
-          model: "gemini-1.5-pro",
+          model: "gemini-2.5-flash",
           createdAt: new Date(Date.now() - 3600000).toISOString()
         },
         createdAt: new Date(Date.now() - 3600000).toISOString(),
@@ -371,7 +376,7 @@ class DataStore {
           recommendationReason: "Customer historically completes 4 of 5 transactions over UPI.",
           guardrailOutcome: "AUTO_EXECUTE",
           guardrailNotes: ["Within max retries", "Probability 84% exceeds minimum 20%"],
-          model: "gemini-1.5-pro",
+          model: "gemini-2.5-flash",
           createdAt: new Date(Date.now() - 7200000).toISOString()
         },
         createdAt: new Date(Date.now() - 7200000).toISOString(),
@@ -501,6 +506,11 @@ class DataStore {
     return this.products.get(id);
   }
 
+  public setProduct(product: Product): Product {
+    this.products.set(product.productId, product);
+    return product;
+  }
+
   public getCustomer(id: string): Customer | undefined {
     return this.customers.get(id);
   }
@@ -516,14 +526,31 @@ class DataStore {
   }
 
   public getOrder(id: string): Order | undefined {
-    return this.orders.get(id);
+    const direct = this.orders.get(id);
+    if (direct) return direct;
+    const allOrders = Array.from(this.orders.values());
+    for (const order of allOrders) {
+      if (order.razorpayOrderId === id) return order;
+    }
+    return undefined;
   }
 
   public updateOrder(id: string, updates: Partial<Order>): Order | undefined {
-    const existing = this.orders.get(id);
+    let existing = this.orders.get(id);
+    let key = id;
+    if (!existing) {
+      const allEntries = Array.from(this.orders.entries());
+      for (const [k, order] of allEntries) {
+        if (order.razorpayOrderId === id) {
+          existing = order;
+          key = k;
+          break;
+        }
+      }
+    }
     if (!existing) return undefined;
     const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
-    this.orders.set(id, updated);
+    this.orders.set(key, updated);
     return updated;
   }
 

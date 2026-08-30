@@ -61,21 +61,19 @@ export async function POST(req: NextRequest) {
 
     // Call real Razorpay API if instance is configured
     if (razorpayInstance) {
-      try {
-        const rzpOrder = await razorpayInstance.orders.create({
-          amount: amountPaise,
-          currency,
-          receipt: orderId,
-          notes: {
-            customerId: customerId || "CUS-8F42K1",
-            customerName: customerName || "Customer",
-            platform: "RevivePay"
-          }
-        });
-        razorpayOrderId = rzpOrder.id;
-      } catch (err: any) {
-        console.warn("Razorpay API create order response (using test mode order id):", err?.message || err);
-      }
+      const rzpOrder = await razorpayInstance.orders.create({
+        amount: amountPaise,
+        currency,
+        receipt: orderId,
+        notes: {
+          customerId: customerId || "CUS-8F42K1",
+          customerName: customerName || "Customer",
+          platform: "RevivePay"
+        }
+      });
+      razorpayOrderId = rzpOrder.id;
+    } else {
+      console.warn("[Razorpay] Instance not initialized (missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET). Using development order fallback.");
     }
 
     // Persist order in data layer

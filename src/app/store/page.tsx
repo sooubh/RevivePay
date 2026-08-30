@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
+import { dbService } from "@/lib/firebase/db";
 import { Product, OrderItem } from "@/lib/types";
 import { Star, ShoppingCart, ArrowRight, Check } from "lucide-react";
 
@@ -18,96 +19,12 @@ export default function StorePage() {
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load products
-    const defaultProducts: Product[] = [
-      {
-        productId: "PROD-001",
-        name: "Aeon Performance Runner",
-        brand: "LuxeStep",
-        price: 4999,
-        originalPrice: 6499,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
-        thumbnails: [
-          "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
-          "https://lh3.googleusercontent.com/aida-public/AB6AXuCY8l2hYzsJ34eQP0EkYiNXBwrz7_pNv6BLhGSR5-sM_id6GQ7pJLCRR5oXTbg1_jueuX4_Kn8nhQ58QzjEXwfMdafiOM-pO9MkXekzWsuYtbyvnmfCwORuRHDpSTa1uoX_rsfAl-gzG_g2pIKykMXTPwIIQTMqltCM9zGkL1BSjO3BmnatSD3dIqI9pDSef6FkEJlawRMYa9WNGpyABpAOfZ7QOYdzMFstn3R7DhAQrUlvNomKClUM",
-          "https://lh3.googleusercontent.com/aida-public/AB6AXuDYl-8gPUJnC0X7N0nWyXGAVmBWGBFLbQHmT_T_wzp878qWriZvTZxs3QFSMsAuA1wwZcRRwpRC0YPmGwEzNFcM-xHsDXhtYJWPRcoumI6VUtFHYWdtUhm8ThcBo3uTjlmo82IrWU9qbtsRl8oSpzAml2IH5wl1JKqbSovrPyQtQ-vjwM7BICyz-Pv7v69lc_TuoGXP60bT-nWsakF9CZOM4f8hAGvTfg-FtssrRaCqJ-7-UxgKDDWL"
-        ],
-        sizes: ["7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11", "12", "13"],
-        category: "Running",
-        badge: "New",
-        rating: 4.8,
-        reviewCount: 124,
-        description: "Luxury meets ultimate sitting comfort. Explore the new generation of athletic footwear designed for unparalleled performance and street-ready style.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
-      },
-      {
-        productId: "PROD-002",
-        name: "Nike Air Max Pulse",
-        brand: "Nike",
-        price: 7999,
-        originalPrice: 9999,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCsh6ioprseMzD5n66SbeYiCqWiKJpRLZ8F89quMLTx--LSIGaQw4ONOspnuHzDJYxTO1LBMS9wfGQWktocIqfzFuAIJvDtcDg5aVCwn65SOsL7fvFy6oXcvJCzfvjrrGz7enPjJeqocYbGTeC8yEKHiXPVufxzaNYlhRJ7edB8H4iA2NKS0-yS-xRo4c2J-YsHdH9KefqFhSON9MoaPWQ83CApMm_8HyvO5n6DRMqQ5JfMBMZOd6ta",
-        sizes: ["7", "8", "8.5", "9", "9.5", "10", "11"],
-        category: "Lifestyle",
-        badge: "New",
-        rating: 4.5,
-        reviewCount: 89,
-        description: "Pristine athletic shoe with mint green and bright blue gradient accents. Engineered for all-day cushioning and sleek streetwear appeal.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
-      },
-      {
-        productId: "PROD-003",
-        name: "Air Jordan Retro High",
-        brand: "Jordan",
-        price: 12500,
-        originalPrice: 15000,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCY8l2hYzsJ34eQP0EkYiNXBwrz7_pNv6BLhGSR5-sM_id6GQ7pJLCRR5oXTbg1_jueuX4_Kn8nhQ58QzjEXwfMdafiOM-pO9MkXekzWsuYtbyvnmfCwORuRHDpSTa1uoX_rsfAl-gzG_g2pIKykMXTPwIIQTMqltCM9zGkL1BSjO3BmnatSD3dIqI9pDSef6FkEJlawRMYa9WNGpyABpAOfZ7QOYdzMFstn3R7DhAQrUlvNomKClUM",
-        sizes: ["8", "8.5", "9", "9.5", "10", "10.5", "11", "12"],
-        category: "Basketball",
-        badge: "Hot",
-        rating: 4.9,
-        reviewCount: 230,
-        description: "A premium lifestyle and court silhouette featuring subtle grey and soft lavender accents with iconic heritage details.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
-      },
-      {
-        productId: "PROD-004",
-        name: "Nike Metro Court",
-        brand: "Nike",
-        price: 3499,
-        originalPrice: 4500,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBQA0H8kzAlA8mZ6A9RrDDM_A8J7CWxmNXgC0v_KubV9B1jYe6hZPOpWdIwG34imN40ZQrH5HY3DYtecl9GirvX8RYmxdC0u-LvjS5AJNHpRXW16ktZz6Dgssx82Av9qSXQzToIb1g2-EAGDMM2IcWvDf6zDj1L3xbZUB3AVKhHZs99TEdHIPCkxc-EF6I29SghP53K9kLTxTa8CdwRrglKUjVnaJKrVrbSJZPEhWBPCU2cU-VYxNVB",
-        sizes: ["7", "8", "9", "10", "11"],
-        category: "Lifestyle",
-        badge: "Hot",
-        rating: 4.2,
-        reviewCount: 56,
-        description: "Lightweight running and walking sneaker with breathable mesh and peach foam sole cushioning.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
-      },
-      {
-        productId: "PROD-005",
-        name: "Air Spain Dynamic Retro",
-        brand: "LuxeStep",
-        price: 5499,
-        originalPrice: 6999,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuDYl-8gPUJnC0X7N0nWyXGAVmBWGBFLbQHmT_T_wzp878qWriZvTZxs3QFSMsAuA1wwZcRRwpRC0YPmGwEzNFcM-xHsDXhtYJWPRcoumI6VUtFHYWdtUhm8ThcBo3uTjlmo82IrWU9qbtsRl8oSpzAml2IH5wl1JKqbSovrPyQtQ-vjwM7BICyz-Pv7v69lc_TuoGXP60bT-nWsakF9CZOM4f8hAGvTfg-FtssrRaCqJ-7-UxgKDDWL",
-        sizes: ["7", "8", "8.5", "9", "10", "11"],
-        category: "Lifestyle",
-        badge: "-35%",
-        rating: 4.6,
-        reviewCount: 78,
-        description: "Vibrant retro-inspired silhouette featuring sky blue, sunset yellow, and athletic red color blocking.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
+    // Load products from data store
+    dbService.getProducts().then((loaded) => {
+      if (loaded && loaded.length > 0) {
+        setProducts(loaded);
       }
-    ];
-
-    setProducts(defaultProducts);
+    });
 
     const savedCart = localStorage.getItem("revivepay_cart");
     if (savedCart) {

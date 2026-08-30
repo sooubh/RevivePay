@@ -7,6 +7,8 @@ import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
 import confetti from "canvas-confetti";
+import { dbService } from "@/lib/firebase/db";
+import { RecoveryOpportunity } from "@/lib/types";
 import {
   CreditCard,
   QrCode,
@@ -17,7 +19,6 @@ import {
   CheckCircle2,
   ArrowRight,
   RefreshCw,
-  Sparkles,
   ExternalLink
 } from "lucide-react";
 
@@ -39,6 +40,8 @@ function PaymentContent() {
   const [rzpLoaded, setRzpLoaded] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [opportunityData, setOpportunityData] = useState<RecoveryOpportunity | null>(null);
+
   useEffect(() => {
     // Load Customer info
     const savedCustomer = localStorage.getItem("revivepay_customer");
@@ -46,6 +49,29 @@ function PaymentContent() {
       try {
         setCustomer(JSON.parse(savedCustomer));
       } catch (e) {}
+    }
+
+    // Subscribe to recovery opportunity if oppId in URL query
+    if (oppIdParam) {
+      setActiveOppId(oppIdParam);
+      const unsub = dbService.subscribeOpportunityById(oppIdParam, (opp) => {
+        if (opp) {
+          setOpportunityData(opp);
+          setFailureState({
+            success: true,
+            opportunityId: opp.opportunityId,
+            recommendedAction: opp.recommendedAction,
+            recoveryProbability: opp.recoveryProbability,
+            recommendationReason: opp.recommendationReason,
+            selectedStrategy: opp.selectedStrategy,
+            amount: opp.amount
+          });
+          if (opp.status === "recovered") {
+            setIsRecovered(true);
+          }
+        }
+      });
+      return () => unsub();
     }
 
     // Dynamically inject Razorpay Standard Web Checkout Script
@@ -60,7 +86,7 @@ function PaymentContent() {
         document.body.removeChild(script);
       } catch (e) {}
     };
-  }, []);
+  }, [oppIdParam]);
 
   // STEP 1 & 2 & 3: Standard Razorpay Web Checkout & Signature Verification Flow
   const handleRazorpayStandardCheckout = async () => {
@@ -90,7 +116,7 @@ function PaymentContent() {
       // 2. Open Razorpay Standard Checkout Modal
       if (typeof window !== "undefined" && (window as any).Razorpay) {
         const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || orderData.key_id || "rzp_test_TVd9yecKAtiRUs",
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || orderData.key_id || "",
           amount: orderData.amount_paise || queryAmount * 100,
           currency: "INR",
           name: "RevenueOS Footwear",
@@ -323,7 +349,9 @@ function PaymentContent() {
               <h2 className="text-2xl md:text-3xl font-extrabold text-[#271814]">We couldn't complete your payment.</h2>
               <p className="text-sm text-[#5a413a] mt-2">
                 Try another payment method to complete your order for{" "}
-                <span className="font-bold text-[#271814]">₹{queryAmount.toLocaleString()}.00</span>.
+                <span className="font-bold text-[#271814]">
+                  ₹{(opportunityData?.amount || failureState?.amount || queryAmount).toLocaleString()}.00
+                </span>.
               </p>
             </div>
 
@@ -331,11 +359,22 @@ function PaymentContent() {
               <div className="flex items-center justify-between text-left">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white border border-[#e3beb6] flex items-center justify-center text-[#b32a03]">
-                    <QrCode className="w-5 h-5" />
+                    {opportunityData?.selectedStrategy === "retry_now" ? (
+                      <RefreshCw className="w-5 h-5" />
+                    ) : (
+                      <QrCode className="w-5 h-5" />
+                    )}
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-[#271814]">Pay with UPI (Recommended)</h4>
-                    <p className="text-xs text-[#5a413a]">Instant authorization via Google Pay / PhonePe</p>
+                    <h4 className="font-bold text-sm text-[#271814]">
+                      {opportunityData?.selectedStrategy === "retry_now"
+                        ? "Instant Payment Retry (Recommended)"
+                        : "Pay with UPI (Recommended)"}
+                    </h4>
+                    <p className="text-xs text-[#5a413a]">
+                      {opportunityData?.recommendationReason ||
+                        "Instant authorization via Google Pay / PhonePe"}
+                    </p>
                   </div>
                 </div>
                 <span className="text-xs font-black text-[#b32a03] uppercase">Fastest</span>
@@ -346,8 +385,18 @@ function PaymentContent() {
                 disabled={loading}
                 className="w-full bg-[#b32a03] text-white font-bold py-4 px-6 rounded-full text-base hover:bg-[#8a1c00] transition-all flex items-center justify-center gap-2 shadow-xl shadow-[#b32a03]/25 disabled:opacity-50"
               >
-                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-                <span>Pay ₹{queryAmount.toLocaleString()} with UPI</span>
+                {loading ? (
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                ) : opportunityData?.selectedStrategy === "retry_now" ? (
+                  <RefreshCw className="w-5 h-5" />
+                ) : (
+                  <QrCode className="w-5 h-5" />
+                )}
+                <span>
+                  {opportunityData?.selectedStrategy === "retry_now"
+                    ? `Retry ₹${(opportunityData?.amount || queryAmount).toLocaleString()}`
+                    : `Pay ₹${(opportunityData?.amount || queryAmount).toLocaleString()} with UPI`}
+                </span>
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>
@@ -441,7 +490,7 @@ function PaymentContent() {
               {/* Demo Golden Path Trigger Card */}
               <section className="bg-[#2a2a2a] text-white p-6 md:p-8 rounded-3xl shadow-xl border border-white/10 space-y-4">
                 <div className="flex items-center gap-2 text-[#D4FF00]">
-                  <Sparkles className="w-4 h-4" />
+                  <ShieldCheck className="w-4 h-4" />
                   <span className="text-xs font-bold uppercase tracking-wider">Golden Demo Flow</span>
                 </div>
                 <h3 className="font-bold text-lg text-white">Simulate Payment Failure & AI Recovery</h3>
@@ -502,7 +551,7 @@ function PaymentContent() {
                 <div className="flex flex-col items-center gap-2 text-[11px] text-[#5a413a] opacity-80 pt-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-[#b32a03]" />
-                    <span>Razorpay Standard Web Checkout (Key ID: rzp_test_TVd9yecKAtiRUs)</span>
+                    <span>Razorpay Standard Web Checkout</span>
                   </div>
                 </div>
               </div>

@@ -14,7 +14,7 @@ function generateCustomerId(): string {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const customerId = searchParams.get("customerId");
+    const customerId = searchParams.get("customerId") || searchParams.get("id");
 
     if (!customerId) {
       return NextResponse.json({ error: "Customer ID is required" }, { status: 400 });

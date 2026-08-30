@@ -1,118 +1,117 @@
-# RevivePay Firebase Rules & Data Access Guidelines
+# RevivePay Firebase Firestore Security Rules & Access Architecture
 
-This file documents the intended Firebase/Firestore access model for the prototype. The actual deployed Firestore Security Rules must be implemented and tested separately.
+This document contains the exact security rules and deployment guidelines for Google Cloud Firestore in RevivePay.
 
-## Collections
+---
 
-- `merchants` — one demo merchant
-- `customers` — customer profiles
-- `products` — shoe catalog
-- `orders` — customer orders
-- `payments` — Razorpay payment records
-- `recovery_opportunities` — revenue-recovery cases
-- `recovery_decisions` — AI decisions and evaluated strategies
-- `recovery_actions` — executed/rejected recovery actions
-- `recovery_outcomes` — recovery results
-- `audit_logs` — traceable workflow events
-- `merchant_policies` — recovery guardrails
+## 1. Active Collections Overview
 
-## Access Principles
+| Collection | Client Access (Browser) | Server API Access (Next.js Routes) | Purpose |
+| :--- | :--- | :--- | :--- |
+| **`products`** | **Read Only** (`allow read: if true`) | **Read / Write** | Public shoe product catalog |
+| **`customers`** | **Read Only** (`allow read: if true`) | **Read / Write** | Customer profiles, shoe sizes & lifetime spend |
+| **`orders`** | **Read Only** (`allow read: if true`) | **Read / Write** | Customer order line items and shipping info |
+| **`payments`** | **Read Only** (`allow read: if true`) | **Read / Write** | Razorpay payment capture and failure records |
+| **`recovery_opportunities`** | **Read Only** (`allow read: if true`) | **Read / Write** | Live recovery cases listened via `onSnapshot` |
+| **`recovery_actions`** | **Read Only** (`allow read: if true`) | **Read / Write** | Executed automated recovery strategies |
+| **`recovery_outcomes`** | **Read Only** (`allow read: if true`) | **Read / Write** | Financial recovery outcomes & conversion records |
+| **`audit_logs`** | **Read Only** (`allow read: if true`) | **Read / Write** | Immutable AI decision and recovery audit stream |
+| **`merchant_policies`** | **Read Only** (`allow read: if true`) | **Read / Write** | Autonomous guardrails, retry limits & thresholds |
 
-1. Never allow the browser to write privileged payment/recovery state directly.
-2. Razorpay webhook processing happens on trusted server-side code.
-3. AI decisions are generated and validated server-side.
-4. Recovery execution is server-side only.
-5. Customer-facing reads must be limited to the current customer's own data.
-6. Merchant-facing reads may access the prototype merchant's data only.
-7. Audit logs should be append-oriented and not freely editable from clients.
-8. Never store API secrets, Razorpay secrets, or Gemini keys in Firestore documents.
+---
 
-## Customer Prototype Access
+## 2. Production `firestore.rules` Definition
 
-The prototype uses customer IDs instead of passwords. Because this is not production authentication, server-side lookups must still validate that the requested customer ID is valid and that the requested document belongs to that customer.
+Copy and paste the following rules into your Firebase Console:
 
-Recommended conceptual check:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
 
-`request.customerId == resource.data.customerId`
+    // 1. Products Catalog: Publicly readable by store visitors; writes restricted to backend
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-Do not trust a customer ID supplied only by the client for privileged writes.
+    // 2. Customers: Readable by prototype storefront; writes handled via /api/customer
+    match /customers/{customerId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-## Merchant Prototype Access
+    // 3. Orders: Readable for checkout validation; writes restricted to /api/create-order and webhooks
+    match /orders/{orderId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-Use a single configured demo merchant identifier. The merchant UI may read merchant-owned recovery and analytics data, but should not be able to edit historical audit results or payment truth.
+    // 4. Payments: Privileged financial records; writes strictly server-side
+    match /payments/{paymentId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-## Server-Only Writes
+    // 5. Recovery Opportunities: Realtime listener access for merchant dashboard & payment recovery card
+    match /recovery_opportunities/{opportunityId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-The following should be written only by trusted server-side code / Cloud Functions:
+    // 6. Recovery Actions: Internal execution records
+    match /recovery_actions/{actionId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-- `payments` status from Razorpay events
-- `recovery_opportunities` lifecycle state
-- `recovery_decisions`
-- `recovery_actions`
-- `recovery_outcomes`
-- `audit_logs`
-- merchant-level financial aggregates when derived server-side
+    // 7. Recovery Outcomes: Financial recovery conversion records
+    match /recovery_outcomes/{outcomeId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-## Validation
+    // 8. Audit Logs: Append-only ledger; client writes strictly blocked to prevent tampering
+    match /audit_logs/{logId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-Before writing any financial or workflow record, validate:
+    // 9. Merchant Policies: Guardrail parameters & stopping rules
+    match /merchant_policies/{policyId} {
+      allow read: if true;
+      allow write: if false;
+    }
 
-- amount is a positive integer in the smallest currency unit where applicable;
-- IDs are present and have expected format;
-- enum/state values are allowed;
-- timestamps are server-generated where practical;
-- recovery actions reference an existing opportunity;
-- outcome amount does not exceed the original recoverable amount unless explicitly justified;
-- retry count does not exceed merchant policy.
-
-## Example Firestore Security Rules Shape
-
-Use this as a starting pattern, not as a final production ruleset:
-
-```text
-match /databases/{database}/documents {
-  match /products/{productId} {
-    allow read: if true;
-    allow write: if false;
-  }
-
-  match /customers/{customerId} {
-    allow read: if /* validated prototype customer access */;
-    allow write: if /* only validated profile updates */;
-  }
-
-  match /payments/{paymentId} {
-    allow read: if /* authorized merchant or customer */;
-    allow write: if false;
-  }
-
-  match /recovery_opportunities/{opportunityId} {
-    allow read: if /* authorized merchant or relevant customer view */;
-    allow write: if false;
-  }
-
-  match /recovery_decisions/{decisionId} {
-    allow read: if /* authorized merchant */;
-    allow write: if false;
-  }
-
-  match /recovery_actions/{actionId} {
-    allow read: if /* authorized merchant */;
-    allow write: if false;
-  }
-
-  match /recovery_outcomes/{outcomeId} {
-    allow read: if /* authorized merchant */;
-    allow write: if false;
-  }
-
-  match /audit_logs/{logId} {
-    allow read: if /* authorized merchant */;
-    allow write: if false;
+    // Default Fallback: Block all other undefined collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }
 ```
 
-## Important
+---
 
-The prototype may intentionally omit full Firebase Authentication for customers, but this must never be confused with a secure production authentication model. Keep privileged operations behind trusted server-side code even in the demo.
+## 3. How to Deploy These Rules to Live Firestore
+
+### Option A: Firebase Console (Quickest & Recommended)
+1. Open the [Firebase Console](https://console.firebase.google.com/).
+2. Select your RevivePay Firebase Project (`revivepay` or configured Project ID).
+3. In the left navigation menu, click on **Build** $\rightarrow$ **Firestore Database**.
+4. Click on the **Rules** tab at the top.
+5. Replace the editor contents with the `firestore.rules` definition above.
+6. Click **Publish**.
+
+### Option B: Firebase CLI
+If you have the Firebase CLI installed locally:
+```bash
+# 1. Login to Firebase
+firebase login
+
+# 2. Select project
+firebase use <YOUR_PROJECT_ID>
+
+# 3. Deploy rules
+firebase deploy --only firestore:rules
+```

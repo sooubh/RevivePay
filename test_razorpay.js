@@ -1,8 +1,8 @@
 const http = require("http");
 const crypto = require("crypto");
 
-const BASE_URL = "http://localhost:3000";
-const RAZORPAY_KEY_SECRET = "XedLQmosLmMuthN7kvgYm7KB";
+const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || "";
 
 function makeRequest(method, path, body = null) {
   return new Promise((resolve, reject) => {
