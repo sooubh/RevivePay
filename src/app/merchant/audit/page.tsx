@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import MerchantNav from "@/components/merchant/MerchantNav";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
+import ReviveCopilotModal from "@/components/merchant/ReviveCopilotModal";
 import { dbService } from "@/lib/firebase/db";
 import { AuditLog, MerchantPolicy } from "@/lib/types";
 import {
@@ -80,6 +81,28 @@ export default function MerchantAuditPage() {
     return true;
   });
 
+  const [exported, setExported] = useState(false);
+
+  const handleExportAuditTrail = () => {
+    const exportData = {
+      system: "RevivePay Immutable AI Decision & Guardrail Audit Trail",
+      exportedAt: new Date().toISOString(),
+      totalLogCount: auditLogs.length,
+      activePolicy: policy || {},
+      logs: auditLogs
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `revivepay-audit-trail-${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setExported(true);
+    setTimeout(() => setExported(false), 2500);
+  };
+
   return (
     <div className="bg-[#EFF4F8] text-[#191c1e] font-sans min-h-screen w-full flex flex-col selection:bg-[#D4FF00] selection:text-black">
       <MerchantNav />
@@ -106,11 +129,11 @@ export default function MerchantAuditPage() {
           </div>
 
           <button
-            onClick={() => alert("Audit log export downloaded in JSON format.")}
+            onClick={handleExportAuditTrail}
             className="bg-white border border-gray-300 rounded-full px-5 py-2.5 text-xs font-bold text-gray-800 flex items-center gap-2 hover:bg-gray-50 shadow-sm transition-all"
           >
             <Download className="w-4 h-4 text-[#5e3bdb]" />
-            <span>Export Audit Trail</span>
+            <span>{exported ? "Audit Trail Exported!" : "Export Audit Trail"}</span>
           </button>
         </header>
 
@@ -296,6 +319,7 @@ export default function MerchantAuditPage() {
       </main>
 
       <DemoSimulatorModal />
+      <ReviveCopilotModal />
     </div>
   );
 }

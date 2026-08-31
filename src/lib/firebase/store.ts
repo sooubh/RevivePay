@@ -11,7 +11,8 @@ import {
   MerchantPolicy,
   OverviewMetrics,
   OpportunityStatus,
-  RecoveryStrategyType
+  RecoveryStrategyType,
+  DispatchedMessage
 } from "@/lib/types";
 
 type ListenerCallback<T> = (data: T) => void;
@@ -26,6 +27,7 @@ class DataStore {
   private decisions: Map<string, RecoveryDecision> = new Map();
   private actions: Map<string, RecoveryAction> = new Map();
   private outcomes: Map<string, RecoveryOutcome> = new Map();
+  private dispatchedMessages: Map<string, DispatchedMessage> = new Map();
   private auditLogs: AuditLog[] = [];
   private policy: MerchantPolicy = {
     merchantId: "MERCH-001",
@@ -427,6 +429,29 @@ class DataStore {
         selectedStrategy: "delayed_retry",
         createdAt: new Date(Date.now() - 28800000).toISOString(),
         updatedAt: new Date(Date.now() - 28800000).toISOString()
+      },
+      {
+        opportunityId: "TXN-8920-R",
+        paymentId: "PAY-8920-R",
+        orderId: "ORD-8920-R",
+        customerId: "CUS-8F42K1",
+        customerName: "Sarah Jenkins",
+        customerEmail: "sarah.j@example.com",
+        amount: 4999,
+        currency: "INR",
+        sourceType: "razorpay_failure",
+        paymentMethod: "upi",
+        failureType: "UPI timeout recovered",
+        attemptCount: 1,
+        status: "recovered",
+        priority: "Medium Priority",
+        recoveryProbability: 0.84,
+        expectedRecovery: 4199,
+        recommendedAction: "Instant UPI Retry",
+        recommendationReason: "Customer historically completes 4 of 5 transactions over UPI.",
+        selectedStrategy: "retry_now",
+        createdAt: new Date(Date.now() - 86400000).toISOString(),
+        updatedAt: new Date(Date.now() - 86000000).toISOString()
       }
     ];
 
@@ -436,6 +461,32 @@ class DataStore {
         this.decisions.set(opp.decision.decisionId, opp.decision);
       }
     });
+
+    const defaultOutcomes: RecoveryOutcome[] = [
+      {
+        outcomeId: "OUT-8920-R",
+        opportunityId: "TXN-8920-R",
+        successful: true,
+        originalAmount: 4999,
+        amountRecovered: 4999,
+        timeToRecoverySeconds: 42,
+        customerFriction: "low",
+        recoveredPaymentMethod: "upi",
+        createdAt: new Date(Date.now() - 86000000).toISOString()
+      },
+      {
+        outcomeId: "OUT-HIST-01",
+        opportunityId: "OPP-HIST-01",
+        successful: true,
+        originalAmount: 6421,
+        amountRecovered: 6421,
+        timeToRecoverySeconds: 30,
+        customerFriction: "low",
+        recoveredPaymentMethod: "upi",
+        createdAt: new Date(Date.now() - 172800000).toISOString()
+      }
+    ];
+    defaultOutcomes.forEach(out => this.outcomes.set(out.outcomeId, out));
 
     this.auditLogs = [
       {
@@ -635,6 +686,19 @@ class DataStore {
     return [...this.auditLogs];
   }
 
+  public addDispatchedMessage(msg: DispatchedMessage): DispatchedMessage {
+    this.dispatchedMessages.set(msg.dispatchId, msg);
+    return msg;
+  }
+
+  public getDispatchedMessages(opportunityId?: string): DispatchedMessage[] {
+    const list = Array.from(this.dispatchedMessages.values());
+    if (opportunityId) {
+      return list.filter((m) => m.opportunityId === opportunityId);
+    }
+    return list;
+  }
+
   public getMerchantPolicy(): MerchantPolicy {
     return { ...this.policy };
   }
@@ -649,30 +713,61 @@ class DataStore {
     const outcomes = Array.from(this.outcomes.values());
 
     let revenueAtRisk = 0;
-    let aiRecovered = 11420;
-    let incrementalRevenue = 6840;
+    let aiRecovered = 0;
+    let incrementalRevenue = 0;
 
-    opps.forEach(opp => {
-      if (opp.status !== "recovered") {
-        revenueAtRisk += opp.amount;
-      } else {
+    const methodMap: Record<string, { recovered: number; count: number }> = {
+      UPI: { recovered: 0, count: 0 },
+      "Razorpay Card": { recovered: 0, count: 0 },
+      Netbanking: { recovered: 0, count: 0 }
+    };
+
+    const countedOutcomeIds = new Set<string>();
+
+    opps.forEach((opp) => {
+      if (opp.status === "recovered") {
         aiRecovered += opp.amount;
         incrementalRevenue += Math.round(opp.amount * 0.6);
+        const m = (opp.paymentMethod || "upi").toLowerCase();
+        const mKey = m === "upi" ? "UPI" : m === "netbanking" ? "Netbanking" : "Razorpay Card";
+        if (methodMap[mKey]) {
+          methodMap[mKey].recovered += opp.amount;
+          methodMap[mKey].count += 1;
+        }
+      } else if (opp.status !== "do_not_intervene") {
+        revenueAtRisk += opp.amount;
       }
     });
 
-    outcomes.forEach(out => {
+    outcomes.forEach((out) => {
       if (out.successful) {
-        aiRecovered += out.amountRecovered;
-        incrementalRevenue += Math.round(out.amountRecovered * 0.6);
+        // If not already counted via opportunity
+        const isMatchedInOpps = opps.some(
+          (o) => (o.opportunityId === out.opportunityId || o.opportunityId === `TXN-${out.opportunityId.replace('OUT-', '')}`) && o.status === "recovered"
+        );
+        if (!isMatchedInOpps && !countedOutcomeIds.has(out.outcomeId)) {
+          countedOutcomeIds.add(out.outcomeId);
+          aiRecovered += out.amountRecovered;
+          incrementalRevenue += Math.round(out.amountRecovered * 0.6);
+          const m = (out.recoveredPaymentMethod || "upi").toLowerCase();
+          const mKey = m === "upi" ? "UPI" : m === "netbanking" ? "Netbanking" : "Razorpay Card";
+          if (methodMap[mKey]) {
+            methodMap[mKey].recovered += out.amountRecovered;
+            methodMap[mKey].count += 1;
+          }
+        }
       }
     });
-
-    if (revenueAtRisk === 0) revenueAtRisk = 24850;
 
     const totalCalculated = revenueAtRisk + aiRecovered;
-    const recoveryRate = totalCalculated > 0 ? Number(((aiRecovered / totalCalculated) * 100).toFixed(1)) : 45.9;
-    const pendingCount = opps.filter(o => o.status === "recovery_recommended" || o.status === "analyzing").length;
+    const recoveryRate = totalCalculated > 0 ? Number(((aiRecovered / totalCalculated) * 100).toFixed(1)) : 0;
+    const pendingCount = opps.filter((o) => o.status === "recovery_recommended" || o.status === "analyzing").length;
+
+    const paymentMethodBreakdown = Object.entries(methodMap).map(([method, data]) => ({
+      method,
+      recovered: data.recovered,
+      count: data.count
+    }));
 
     return {
       revenueAtRisk,
@@ -681,18 +776,14 @@ class DataStore {
       incrementalRevenue,
       activeOpportunitiesCount: opps.length,
       pendingActionCount: pendingCount,
-      totalTransactions: opps.length + 142,
+      totalTransactions: opps.length + outcomes.length + 120,
       monthlyTrend: [
         { month: "Sep", atRisk: 18000, recovered: 9200 },
         { month: "Oct", atRisk: 22400, recovered: 10800 },
         { month: "Nov", atRisk: 26100, recovered: 12400 },
         { month: "Dec", atRisk: revenueAtRisk, recovered: aiRecovered }
       ],
-      paymentMethodBreakdown: [
-        { method: "UPI", recovered: Math.round(aiRecovered * 0.65), count: 18 },
-        { method: "Razorpay Card", recovered: Math.round(aiRecovered * 0.25), count: 8 },
-        { method: "Netbanking", recovered: Math.round(aiRecovered * 0.1), count: 3 }
-      ]
+      paymentMethodBreakdown
     };
   }
 

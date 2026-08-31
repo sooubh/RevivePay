@@ -19,7 +19,8 @@ import {
   CheckCircle2,
   ArrowRight,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Tag
 } from "lucide-react";
 
 function PaymentContent() {
@@ -39,8 +40,15 @@ function PaymentContent() {
   const [customer, setCustomer] = useState<any>(null);
   const [rzpLoaded, setRzpLoaded] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
   const [opportunityData, setOpportunityData] = useState<RecoveryOpportunity | null>(null);
+  const [countdown, setCountdown] = useState<number>(895);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     // Load Customer info
@@ -380,6 +388,24 @@ function PaymentContent() {
                 <span className="text-xs font-black text-[#b32a03] uppercase">Fastest</span>
               </div>
 
+              {/* Dynamic AI Incentive Offer */}
+              {opportunityData?.incentiveOffer && opportunityData.incentiveOffer.type !== "none" && (
+                <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300 text-left space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-emerald-950 font-bold text-xs">
+                      <Tag className="w-4 h-4 text-emerald-700" />
+                      <span>{opportunityData.incentiveOffer.label} Unlocked!</span>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-200 text-emerald-900 text-[10px] font-extrabold rounded-md uppercase">
+                      {opportunityData.incentiveOffer.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-emerald-800 leading-snug">
+                    {opportunityData.incentiveOffer.reasoning}
+                  </p>
+                </div>
+              )}
+
               <button
                 onClick={handleCustomerRecovery}
                 disabled={loading}
@@ -401,9 +427,14 @@ function PaymentContent() {
               </button>
             </div>
 
-            <div className="flex items-center justify-center gap-2 text-xs text-[#5a413a]">
-              <ShieldCheck className="w-4 h-4 text-[#b32a03]" />
-              <span>Your basket and shoe size are reserved for 15 minutes.</span>
+            <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 font-medium">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#b32a03]" />
+                <span>Shoe size & cart reserved:</span>
+              </div>
+              <span className="font-mono font-bold text-[#b32a03] bg-white px-2.5 py-0.5 rounded-md border border-amber-200 shadow-xs">
+                {Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, "0")} remaining
+              </span>
             </div>
           </div>
         ) : (

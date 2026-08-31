@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MerchantNav from "@/components/merchant/MerchantNav";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
+import BankHealthRadar from "@/components/merchant/BankHealthRadar";
+import ReviveCopilotModal from "@/components/merchant/ReviveCopilotModal";
 import { dbService } from "@/lib/firebase/db";
 import { RecoveryOpportunity, OverviewMetrics } from "@/lib/types";
 import {
@@ -102,20 +104,20 @@ export default function MerchantOverviewPage() {
                 <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">Revenue at Risk</p>
                 <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
                   <span className="text-xl text-gray-400 mr-1">₹</span>
-                  {(metrics?.revenueAtRisk || 24850).toLocaleString()}.00
+                  {(metrics?.revenueAtRisk ?? 0).toLocaleString()}.00
                 </p>
               </div>
               <div>
                 <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">AI Recovered</p>
                 <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
                   <span className="text-xl text-[#5e3bdb] mr-1">₹</span>
-                  {(metrics?.aiRecovered || 11420).toLocaleString()}.00
+                  {(metrics?.aiRecovered ?? 0).toLocaleString()}.00
                 </p>
               </div>
               <div>
                 <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">Recovery Rate</p>
                 <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
-                  {metrics?.recoveryRate || 45.9}
+                  {metrics?.recoveryRate ?? 0}
                   <span className="text-2xl text-gray-400 ml-1">%</span>
                 </p>
               </div>
@@ -124,10 +126,16 @@ export default function MerchantOverviewPage() {
             {/* Monthly Striped Timeline Bar */}
             <div className="mt-8">
               <div className="flex justify-between text-xs text-gray-500 mb-2 font-bold">
-                <span>Sep (₹9.2k)</span>
-                <span>Oct (₹10.8k)</span>
-                <span>Nov (₹12.4k)</span>
-                <span>Dec (₹{(((metrics?.aiRecovered || 11420)) / 1000).toFixed(1)}k Live)</span>
+                {(metrics?.monthlyTrend || [
+                  { month: "Sep", recovered: 9200 },
+                  { month: "Oct", recovered: 10800 },
+                  { month: "Nov", recovered: 12400 },
+                  { month: "Dec", recovered: metrics?.aiRecovered || 0 }
+                ]).map((m, idx) => (
+                  <span key={idx}>
+                    {m.month} (₹{(m.recovered / 1000).toFixed(1)}k{idx === 3 ? " Live" : ""})
+                  </span>
+                ))}
               </div>
               <div className="w-full h-3.5 bg-gray-200 rounded-full overflow-hidden flex shadow-inner">
                 <div className="h-full bg-[#D4FF00] w-1/4 rounded-full border-r-2 border-white"></div>
@@ -151,7 +159,7 @@ export default function MerchantOverviewPage() {
               <div className="flex items-baseline gap-2">
                 <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
                   <span className="text-xl text-[#5e3bdb] mr-1">+₹</span>
-                  {(metrics?.incrementalRevenue || 6840).toLocaleString()}.00
+                  {(metrics?.incrementalRevenue ?? 0).toLocaleString()}.00
                 </p>
                 <span className="px-2.5 py-0.5 bg-white rounded-full text-[10px] font-bold border border-gray-200">
                   Modeled
@@ -166,7 +174,9 @@ export default function MerchantOverviewPage() {
               </div>
               <div className="bg-[#D4FF00] rounded-xl p-3.5 flex-1 shadow-sm">
                 <p className="text-[11px] text-[#2a2a2a]/70 mb-1 font-mono font-bold">#UPI-Engine</p>
-                <p className="text-xs font-extrabold text-[#2a2a2a]">84% Top Rate</p>
+                <p className="text-xs font-extrabold text-[#2a2a2a]">
+                  {metrics?.recoveryRate ? `${metrics.recoveryRate}% Live Rate` : "84% Top Rate"}
+                </p>
               </div>
             </div>
           </div>
@@ -390,9 +400,15 @@ export default function MerchantOverviewPage() {
             </div>
           </div>
         </div>
+
+        {/* Bank & PSP Health Telemetry Radar */}
+        <div className="mt-8">
+          <BankHealthRadar />
+        </div>
       </main>
 
       <DemoSimulatorModal />
+      <ReviveCopilotModal />
     </div>
   );
 }

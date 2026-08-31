@@ -3,6 +3,7 @@ import { runFailureAnalyst } from "@/lib/ai/agents/failureAnalyst";
 import { runRecoveryPredictor } from "@/lib/ai/agents/recoveryPredictor";
 import { runStrategyAgent } from "@/lib/ai/agents/strategyAgent";
 import { runRecoveryExplainer } from "@/lib/ai/agents/recoveryExplainer";
+import { IncentiveEngine } from "@/lib/ai/incentiveEngine";
 import { GuardrailEngine } from "./guardrailEngine";
 import {
   Payment,
@@ -174,7 +175,26 @@ export class RecoveryOrchestrator {
         customer
       });
 
-      // 7. Assemble Structured Decision
+      // 7. AGENT 5: Dynamic Micro-Incentive Evaluator
+      const incentiveOffer = IncentiveEngine.evaluateIncentive({
+        payment,
+        prediction,
+        failureAnalysis: analysis,
+        customer
+      });
+
+      if (incentiveOffer.type !== "none") {
+        await dbService.addAuditLog({
+          opportunityId,
+          actorType: "AI_AGENT",
+          agentName: "StrategyAgent",
+          eventType: "INCENTIVE_ATTACHED",
+          message: `Incentive attached: ${incentiveOffer.label} (${incentiveOffer.badge})`,
+          metadata: { incentive: incentiveOffer }
+        });
+      }
+
+      // 8. Assemble Structured Decision
       const decision: RecoveryDecision = {
         decisionId: `DEC-${opportunityId}`,
         opportunityId,
@@ -188,6 +208,7 @@ export class RecoveryOrchestrator {
         recommendationReason: explanation,
         guardrailOutcome: guardrailResult.outcome,
         guardrailNotes: guardrailResult.notes,
+        incentiveOffer,
         model: analystModel || "gemini-2.5-flash",
         createdAt: new Date().toISOString()
       };
@@ -214,6 +235,7 @@ export class RecoveryOrchestrator {
         recommendationReason: explanation,
         selectedStrategy: guardrailResult.finalStrategy,
         decision,
+        incentiveOffer,
         customerRecoveryUrl: `/store/payment?oppId=${opportunityId}&orderId=${payment.orderId}`,
         updatedAt: new Date().toISOString()
       };

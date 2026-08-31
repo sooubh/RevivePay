@@ -11,7 +11,8 @@ import {
   RecoveryOutcome,
   AuditLog,
   MerchantPolicy,
-  OverviewMetrics
+  OverviewMetrics,
+  DispatchedMessage
 } from "@/lib/types";
 
 // Unified Data Access Layer (Local Store + Live Cloud Firestore)
@@ -310,7 +311,29 @@ export const dbService = {
     };
   },
 
+  getMetrics: async (): Promise<OverviewMetrics> => {
+    return store.getOverviewMetrics();
+  },
+
   subscribeMetrics: (cb: (data: OverviewMetrics) => void) => {
     return store.subscribeMetrics(cb);
+  },
+
+  // Multi-Channel Dispatch
+  dispatchMessage: async (msg: DispatchedMessage): Promise<DispatchedMessage> => {
+    const saved = store.addDispatchedMessage(msg);
+    await dbService.addAuditLog({
+      opportunityId: msg.opportunityId,
+      actorType: "AI_AGENT",
+      agentName: "RecoveryOrchestrator",
+      eventType: "MESSAGE_DISPATCHED",
+      message: `1-Click Recovery link dispatched via ${msg.channel.toUpperCase()} to ${msg.recipientName} (${msg.recipientContact})`,
+      metadata: { channel: msg.channel, dispatchId: msg.dispatchId, incentive: msg.incentiveAttached }
+    });
+    return saved;
+  },
+
+  getDispatchedMessages: async (oppId?: string): Promise<DispatchedMessage[]> => {
+    return store.getDispatchedMessages(oppId);
   }
 };

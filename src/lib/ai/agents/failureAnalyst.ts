@@ -73,15 +73,15 @@ Respond with strict JSON matching:
 }`;
 
   const userPrompt = `Payment Context:
-- Amount: ₹\${payment.amount}
-- Method: \${payment.paymentMethod}
-- Failure Code: \${failureCode || payment.failureCode || "N/A"}
-- Failure Reason: \${failureReason || payment.failureReason || "N/A"}
-- Attempt Count: \${payment.attemptNumber}
-- Customer ID: \${customer?.customerId || "GUEST"}
-- Customer Lifetime Spend: ₹\${customer?.totalSpend || 0}
-- Prior Successes: \${customer?.successfulPayments || 0}
-- Prior Failures: \${customer?.failedPayments || 0}`;
+- Amount: ₹${payment.amount}
+- Method: ${payment.paymentMethod}
+- Failure Code: ${failureCode || payment.failureCode || "N/A"}
+- Failure Reason: ${failureReason || payment.failureReason || "N/A"}
+- Attempt Count: ${payment.attemptNumber}
+- Customer ID: ${customer?.customerId || "GUEST"}
+- Customer Lifetime Spend: ₹${customer?.totalSpend || 0}
+- Prior Successes: ${customer?.successfulPayments || 0}
+- Prior Failures: ${customer?.failedPayments || 0}`;
 
   const response = await callGeminiStructured<FailureAnalysisResult>(systemPrompt, userPrompt, fallback);
   return { analysis: response.result, model: response.model };

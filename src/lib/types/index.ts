@@ -157,6 +157,39 @@ export interface FailureAnalysisResult {
   suggestedFocus: string;
 }
 
+export interface IncentiveOffer {
+  type: 'free_express_shipping' | 'instant_upi_cashback' | 'surge_discount' | 'extended_reservation' | 'none';
+  discountAmount: number; // e.g. 250
+  label: string;
+  badge: string;
+  expirySeconds: number; // e.g. 900 (15 min)
+  reasoning: string;
+}
+
+export interface BankHealthNode {
+  bankName: string;
+  code: string;
+  rail: 'UPI' | 'CARD' | 'NETBANKING';
+  successRate: number; // 0-100
+  latencyMs: number;
+  status: 'optimal' | 'degraded' | 'maintenance';
+  recommendedAlternative?: string;
+  lastUpdated: string;
+}
+
+export interface DispatchedMessage {
+  dispatchId: string;
+  opportunityId: string;
+  channel: 'whatsapp' | 'sms' | 'email';
+  recipientName: string;
+  recipientContact: string;
+  messageContent: string;
+  incentiveAttached?: IncentiveOffer;
+  status: 'delivered' | 'read' | 'clicked' | 'converted';
+  paymentLink: string;
+  dispatchedAt: string;
+}
+
 export interface RecoveryPredictionResult {
   recoveryProbability: number; // e.g. 0.84
   confidence: number; // e.g. 0.91
@@ -182,6 +215,7 @@ export interface RecoveryDecision {
   recommendationReason: string;
   guardrailOutcome: GuardrailOutcome;
   guardrailNotes: string[];
+  incentiveOffer?: IncentiveOffer;
   model: string;
   createdAt: string;
 }
@@ -207,6 +241,7 @@ export interface RecoveryOpportunity {
   recommendationReason: string;
   selectedStrategy: RecoveryStrategyType;
   decision?: RecoveryDecision;
+  incentiveOffer?: IncentiveOffer;
   customerRecoveryUrl?: string;
   createdAt: string;
   updatedAt: string;
@@ -256,7 +291,9 @@ export interface AuditLog {
     | 'CUSTOMER_RECOVERY_STARTED'
     | 'PAYMENT_RECOVERED'
     | 'RECOVERY_ABORTED'
-    | 'MANUAL_APPROVAL_GRANTED';
+    | 'MANUAL_APPROVAL_GRANTED'
+    | 'INCENTIVE_ATTACHED'
+    | 'MESSAGE_DISPATCHED';
   message: string;
   metadata?: Record<string, any>;
   createdAt: string;
@@ -266,7 +303,7 @@ export interface MerchantPolicy {
   merchantId: string;
   maxRetries: number; // default 2
   maxCustomerMessages: number; // default 1
-  humanApprovalThreshold: number; // default ?20,000
+  humanApprovalThreshold: number; // default ₹20,000
   minimumRecoveryProbability: number; // default 0.20 (20%)
   cooldownMinutes: number; // default 15
   autoExecuteStrategies: RecoveryStrategyType[];

@@ -53,13 +53,13 @@ Respond with JSON matching:
   "explanation": string
 }`;
 
-  const userPrompt = `Selected Strategy: \${selectedStrategy}
-Failure Category: \${failureAnalysis.failureCategory}
-Root Cause: \${failureAnalysis.rootCause}
-Estimated Probability: \${prediction.recoveryProbability}
-Amount: ₹\${payment.amount}
-Customer Prior Successes: \${customer?.successfulPayments || 0}
-Customer Preferred Method: \${customer?.preferredPaymentMethod || "none"}`;
+  const userPrompt = `Selected Strategy: ${selectedStrategy}
+Failure Category: ${failureAnalysis.failureCategory}
+Root Cause: ${failureAnalysis.rootCause}
+Estimated Probability: ${prediction.recoveryProbability}
+Amount: ₹${payment.amount}
+Customer Prior Successes: ${customer?.successfulPayments || 0}
+Customer Preferred Method: ${customer?.preferredPaymentMethod || "none"}`;
 
   const response = await callGeminiStructured<{ explanation: string }>(
     systemPrompt,

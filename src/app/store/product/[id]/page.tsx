@@ -7,6 +7,7 @@ import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
 import { Product, OrderItem } from "@/lib/types";
+import { dbService } from "@/lib/firebase/db";
 import { Star, ShoppingCart, Heart, ChevronRight, Check, Shield, Truck, RotateCcw, ArrowRight } from "lucide-react";
 
 export default function ProductDetailPage() {
@@ -31,66 +32,25 @@ export default function ProductDetailPage() {
       } catch (e) {}
     }
 
-    // Default catalog
-    const catalog: Record<string, Product> = {
-      "PROD-001": {
-        productId: "PROD-001",
-        name: "Aeon Performance Runner",
-        brand: "LuxeStep",
-        price: 4999,
-        originalPrice: 6499,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
-        thumbnails: [
-          "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-",
-          "https://lh3.googleusercontent.com/aida-public/AB6AXuCY8l2hYzsJ34eQP0EkYiNXBwrz7_pNv6BLhGSR5-sM_id6GQ7pJLCRR5oXTbg1_jueuX4_Kn8nhQ58QzjEXwfMdafiOM-pO9MkXekzWsuYtbyvnmfCwORuRHDpSTa1uoX_rsfAl-gzG_g2pIKykMXTPwIIQTMqltCM9zGkL1BSjO3BmnatSD3dIqI9pDSef6FkEJlawRMYa9WNGpyABpAOfZ7QOYdzMFstn3R7DhAQrUlvNomKClUM",
-          "https://lh3.googleusercontent.com/aida-public/AB6AXuDYl-8gPUJnC0X7N0nWyXGAVmBWGBFLbQHmT_T_wzp878qWriZvTZxs3QFSMsAuA1wwZcRRwpRC0YPmGwEzNFcM-xHsDXhtYJWPRcoumI6VUtFHYWdtUhm8ThcBo3uTjlmo82IrWU9qbtsRl8oSpzAml2IH5wl1JKqbSovrPyQtQ-vjwM7BICyz-Pv7v69lc_TuoGXP60bT-nWsakF9CZOM4f8hAGvTfg-FtssrRaCqJ-7-UxgKDDWL"
-        ],
-        sizes: ["7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11", "12", "13"],
-        category: "Running",
-        badge: "New",
-        rating: 4.8,
-        reviewCount: 124,
-        description: "Luxury meets ultimate sitting comfort. Explore the new generation of athletic footwear designed for unparalleled performance and street-ready style.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
-      },
-      "PROD-002": {
-        productId: "PROD-002",
-        name: "Nike Air Max Pulse",
-        brand: "Nike",
-        price: 7999,
-        originalPrice: 9999,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCsh6ioprseMzD5n66SbeYiCqWiKJpRLZ8F89quMLTx--LSIGaQw4ONOspnuHzDJYxTO1LBMS9wfGQWktocIqfzFuAIJvDtcDg5aVCwn65SOsL7fvFy6oXcvJCzfvjrrGz7enPjJeqocYbGTeC8yEKHiXPVufxzaNYlhRJ7edB8H4iA2NKS0-yS-xRo4c2J-YsHdH9KefqFhSON9MoaPWQ83CApMm_8HyvO5n6DRMqQ5JfMBMZOd6ta",
-        sizes: ["7", "8", "8.5", "9", "9.5", "10", "11"],
-        category: "Lifestyle",
-        badge: "New",
-        rating: 4.5,
-        reviewCount: 89,
-        description: "Pristine athletic shoe with mint green and bright blue gradient accents. Engineered for all-day cushioning and sleek streetwear appeal.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
-      },
-      "PROD-003": {
-        productId: "PROD-003",
-        name: "Air Jordan Retro High",
-        brand: "Jordan",
-        price: 12500,
-        originalPrice: 15000,
-        imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuCY8l2hYzsJ34eQP0EkYiNXBwrz7_pNv6BLhGSR5-sM_id6GQ7pJLCRR5oXTbg1_jueuX4_Kn8nhQ58QzjEXwfMdafiOM-pO9MkXekzWsuYtbyvnmfCwORuRHDpSTa1uoX_rsfAl-gzG_g2pIKykMXTPwIIQTMqltCM9zGkL1BSjO3BmnatSD3dIqI9pDSef6FkEJlawRMYa9WNGpyABpAOfZ7QOYdzMFstn3R7DhAQrUlvNomKClUM",
-        sizes: ["8", "8.5", "9", "9.5", "10", "10.5", "11", "12"],
-        category: "Basketball",
-        badge: "Hot",
-        rating: 4.9,
-        reviewCount: 230,
-        description: "A premium lifestyle and court silhouette featuring subtle grey and soft lavender accents with iconic heritage details.",
-        stockStatus: "in_stock",
-        createdAt: new Date().toISOString()
+    // Fetch real product from database service
+    dbService.getProductById(productId).then(async (found) => {
+      if (found) {
+        setProduct(found);
+        setSelectedImage(found.imageUrl);
+        if (found.colors && found.colors.length > 0) {
+          setSelectedColor(found.colors[0].name);
+        }
+      } else {
+        const all = await dbService.getProducts();
+        if (all.length > 0) {
+          setProduct(all[0]);
+          setSelectedImage(all[0].imageUrl);
+          if (all[0].colors && all[0].colors.length > 0) {
+            setSelectedColor(all[0].colors[0].name);
+          }
+        }
       }
-    };
-
-    const current = catalog[productId] || catalog["PROD-001"];
-    setProduct(current);
-    setSelectedImage(current.imageUrl);
+    });
 
     const savedCart = localStorage.getItem("revivepay_cart");
     if (savedCart) {
@@ -232,11 +192,14 @@ export default function ProductDetailPage() {
                 <span className="text-xs font-medium text-[#5a413a]">{selectedColor}</span>
               </div>
               <div className="flex gap-3">
-                {[
-                  { name: "Crimson / Cloud", hex: "#ff5f38" },
-                  { name: "Midnight Black", hex: "#1e293b" },
-                  { name: "Glacier White", hex: "#e2e8f0" }
-                ].map((c) => (
+                {(product.colors && product.colors.length > 0
+                  ? product.colors
+                  : [
+                      { name: "Crimson / Cloud", hex: "#ff5f38" },
+                      { name: "Midnight Black", hex: "#1e293b" },
+                      { name: "Glacier White", hex: "#e2e8f0" }
+                    ]
+                ).map((c) => (
                   <button
                     key={c.name}
                     onClick={() => setSelectedColor(c.name)}

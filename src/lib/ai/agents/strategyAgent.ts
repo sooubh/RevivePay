@@ -156,12 +156,12 @@ Respond with strict JSON matching:
 }`;
 
   const userPrompt = `Evaluation Input:
-- Amount: ₹\${amount}
-- Failure Category: \${category}
-- Root Cause: \${failureAnalysis.rootCause}
-- Recovery Probability: \${prediction.recoveryProbability}
-- Customer Preferred Method: \${customer?.preferredPaymentMethod || "unknown"}
-- Candidate Strategies: \${JSON.stringify(candidates.map(c => ({ strategy: c.strategy, label: c.label, prob: c.probability, expected: c.expectedRecovery })))}`;
+- Amount: ₹${amount}
+- Failure Category: ${category}
+- Root Cause: ${failureAnalysis.rootCause}
+- Recovery Probability: ${prediction.recoveryProbability}
+- Customer Preferred Method: ${customer?.preferredPaymentMethod || "unknown"}
+- Candidate Strategies: ${JSON.stringify(candidates.map(c => ({ strategy: c.strategy, label: c.label, prob: c.probability, expected: c.expectedRecovery })))}`;
 
   const response = await callGeminiStructured<{
     selectedStrategy: RecoveryStrategyType;

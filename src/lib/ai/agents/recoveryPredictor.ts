@@ -47,7 +47,7 @@ export async function runRecoveryPredictor(input: RecoveryPredictorInput): Promi
   if (customer) {
     if (customer.successfulPayments >= 3) {
       baseProb = Math.min(0.95, baseProb + 0.10);
-      keyDrivers.push(`High customer lifetime value (₹\${customer.totalSpend}) and repeat purchases`);
+      keyDrivers.push(`High customer lifetime value (₹${customer.totalSpend}) and repeat purchases`);
     }
     if (customer.preferredPaymentMethod === "upi" && payment.paymentMethod === "upi") {
       baseProb = Math.min(0.92, baseProb + 0.05);
@@ -62,7 +62,7 @@ export async function runRecoveryPredictor(input: RecoveryPredictorInput): Promi
   const fallback: RecoveryPredictionResult = {
     recoveryProbability: baseProb,
     confidence,
-    reasoning: `Estimated recovery probability of \${Math.round(baseProb * 100)}% based on \${failureAnalysis.failureCategory.replace('_', ' ')} failure characteristics and customer payment patterns.`,
+    reasoning: `Estimated recovery probability of ${Math.round(baseProb * 100)}% based on ${failureAnalysis.failureCategory.replace('_', ' ')} failure characteristics and customer payment patterns.`,
     keyDrivers
   };
 
@@ -80,14 +80,14 @@ IMPORTANT RULES:
 }`;
 
   const userPrompt = `Analysis Data:
-- Failure Category: \${failureAnalysis.failureCategory}
-- Root Cause: \${failureAnalysis.rootCause}
-- Customer Risk: \${failureAnalysis.customerRiskProfile}
-- Payment Method: \${payment.paymentMethod}
-- Amount: ₹\${payment.amount}
-- Attempt Count: \${payment.attemptNumber}
-- Customer Successes: \${customer?.successfulPayments || 0}
-- Customer Failures: \${customer?.failedPayments || 0}`;
+- Failure Category: ${failureAnalysis.failureCategory}
+- Root Cause: ${failureAnalysis.rootCause}
+- Customer Risk: ${failureAnalysis.customerRiskProfile}
+- Payment Method: ${payment.paymentMethod}
+- Amount: ₹${payment.amount}
+- Attempt Count: ${payment.attemptNumber}
+- Customer Successes: ${customer?.successfulPayments || 0}
+- Customer Failures: ${customer?.failedPayments || 0}`;
 
   const response = await callGeminiStructured<RecoveryPredictionResult>(systemPrompt, userPrompt, fallback);
 

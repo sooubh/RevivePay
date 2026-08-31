@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import MerchantNav from "@/components/merchant/MerchantNav";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
+import MultiChannelDispatchModal from "@/components/merchant/MultiChannelDispatchModal";
+import ReviveCopilotModal from "@/components/merchant/ReviveCopilotModal";
 import { dbService } from "@/lib/firebase/db";
 import { RecoveryOpportunity } from "@/lib/types";
 import {
@@ -17,7 +19,10 @@ import {
   RefreshCw,
   Sliders,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  Tag,
+  Send
 } from "lucide-react";
 
 export default function MerchantRecoveryPage() {
@@ -27,6 +32,8 @@ export default function MerchantRecoveryPage() {
   const [filter, setFilter] = useState<"all" | "failed" | "pending">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [executing, setExecuting] = useState(false);
+  const [activeCustomer, setActiveCustomer] = useState<any>(null);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
 
   useEffect(() => {
     const unsub = dbService.subscribeOpportunities((data) => {
@@ -42,6 +49,18 @@ export default function MerchantRecoveryPage() {
 
     return () => unsub();
   }, []);
+
+  const activeOpp = selectedOpp || opportunities[0];
+
+  useEffect(() => {
+    if (activeOpp?.customerId) {
+      dbService.getCustomerById(activeOpp.customerId).then((c) => {
+        setActiveCustomer(c);
+      });
+    } else {
+      setActiveCustomer(null);
+    }
+  }, [activeOpp?.customerId]);
 
   const handleExecuteRecovery = async () => {
     if (!activeOpp) return;
@@ -97,8 +116,6 @@ export default function MerchantRecoveryPage() {
     }
     return true;
   });
-
-  const activeOpp = selectedOpp || opportunities[0];
 
   return (
     <div className="bg-[#2a2a2a] text-white font-sans min-h-screen w-full flex flex-col selection:bg-[#D4FF00] selection:text-black">
@@ -275,8 +292,14 @@ export default function MerchantRecoveryPage() {
                     </div>
 
                     <div className="text-right text-xs">
-                      <span className="text-gray-500 block">Customer Spend</span>
-                      <span className="font-bold text-[#2a2a2a] font-mono">₹28,500.00 (Repeat Buyer)</span>
+                      <span className="text-gray-500 block">Customer Lifetime Spend</span>
+                      <span className="font-bold text-[#2a2a2a] font-mono">
+                        ₹{(activeCustomer?.totalSpend ?? (activeOpp.amount * 2)).toLocaleString()}.00 (
+                        {(activeCustomer?.successfulPayments || 0) > 1
+                          ? `Repeat Buyer • ${activeCustomer?.successfulPayments} orders`
+                          : "Verified Customer"}
+                        )
+                      </span>
                     </div>
                   </div>
 
@@ -404,6 +427,19 @@ export default function MerchantRecoveryPage() {
                         ✓ {activeOpp.decision?.guardrailOutcome || "AUTO_EXECUTE"} Approved
                       </span>
                     </div>
+
+                    {/* AI Dynamic Incentive Badge */}
+                    {activeOpp.incentiveOffer && activeOpp.incentiveOffer.type !== "none" && (
+                      <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 text-amber-900 font-bold">
+                          <Tag className="w-4 h-4 text-[#b32a03]" />
+                          <span>AI Incentive: {activeOpp.incentiveOffer.label}</span>
+                        </div>
+                        <span className="px-2 py-0.5 bg-amber-200/70 rounded-md text-[10px] font-extrabold text-amber-900 uppercase">
+                          {activeOpp.incentiveOffer.badge}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -416,23 +452,30 @@ export default function MerchantRecoveryPage() {
                     </span>
                   </div>
 
-                  <div className="flex gap-2.5 w-full sm:w-auto">
+                  <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
                     {activeOpp.status !== "recovered" ? (
                       <>
                         <button
+                          onClick={() => setShowDispatchModal(true)}
+                          className="px-4 py-3 bg-[#D4FF00] text-black font-extrabold rounded-full text-xs hover:bg-[#b8de00] transition-colors shadow-md flex items-center gap-1.5"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          <span>Dispatch 1-Click Link</span>
+                        </button>
+                        <button
                           onClick={handleExecuteRecovery}
                           disabled={executing}
-                          className="flex-1 sm:flex-none px-6 py-3.5 bg-white text-black font-bold rounded-full text-xs hover:bg-gray-100 transition-colors shadow-md disabled:opacity-50"
+                          className="px-4 py-3 bg-white text-black font-bold rounded-full text-xs hover:bg-gray-100 transition-colors shadow-md disabled:opacity-50"
                         >
                           <span>Approve Strategy</span>
                         </button>
                         <button
                           onClick={handleSimulatePaymentRecovered}
                           disabled={executing}
-                          className="flex-1 sm:flex-none px-6 py-3.5 bg-[#2a2a2a] text-[#D4FF00] font-extrabold rounded-full text-xs hover:bg-black transition-colors shadow-lg disabled:opacity-50 flex items-center gap-1.5"
+                          className="px-4 py-3 bg-[#2a2a2a] text-[#D4FF00] font-extrabold rounded-full text-xs hover:bg-black transition-colors shadow-lg disabled:opacity-50 flex items-center gap-1.5"
                         >
                           <CheckCircle2 className="w-4 h-4" />
-                          <span>Simulate Customer Recovery</span>
+                          <span>Simulate Recovery</span>
                         </button>
                       </>
                     ) : (
@@ -454,6 +497,13 @@ export default function MerchantRecoveryPage() {
       </main>
 
       <DemoSimulatorModal />
+      {showDispatchModal && activeOpp && (
+        <MultiChannelDispatchModal
+          opportunity={activeOpp}
+          onClose={() => setShowDispatchModal(false)}
+        />
+      )}
+      <ReviveCopilotModal />
     </div>
   );
 }
