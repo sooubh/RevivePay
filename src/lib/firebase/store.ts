@@ -640,6 +640,13 @@ class DataStore {
     return opp;
   }
 
+  public setRecoveryOpportunitiesBatch(opps: RecoveryOpportunity[]): void {
+    if (!opps || opps.length === 0) return;
+    opps.forEach(opp => this.opportunities.set(opp.opportunityId, opp));
+    this.notifyOpportunities();
+    this.notifyMetrics();
+  }
+
   public updateRecoveryOpportunity(id: string, updates: Partial<RecoveryOpportunity>): RecoveryOpportunity | undefined {
     const existing = this.opportunities.get(id);
     if (!existing) return undefined;
@@ -769,6 +776,8 @@ class DataStore {
       count: data.count
     }));
 
+    const currentMonthName = new Date().toLocaleString("default", { month: "short" });
+
     return {
       revenueAtRisk,
       aiRecovered,
@@ -776,12 +785,12 @@ class DataStore {
       incrementalRevenue,
       activeOpportunitiesCount: opps.length,
       pendingActionCount: pendingCount,
-      totalTransactions: opps.length + outcomes.length + 120,
+      totalTransactions: opps.length + outcomes.length,
       monthlyTrend: [
         { month: "Sep", atRisk: 18000, recovered: 9200 },
         { month: "Oct", atRisk: 22400, recovered: 10800 },
         { month: "Nov", atRisk: 26100, recovered: 12400 },
-        { month: "Dec", atRisk: revenueAtRisk, recovered: aiRecovered }
+        { month: currentMonthName, atRisk: revenueAtRisk, recovered: aiRecovered }
       ],
       paymentMethodBreakdown
     };

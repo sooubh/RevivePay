@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import MerchantNav from "@/components/merchant/MerchantNav";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
@@ -22,11 +22,15 @@ import {
   AlertCircle,
   MessageSquare,
   Tag,
-  Send
+  Send,
+  XCircle
 } from "lucide-react";
 
-export default function MerchantRecoveryPage() {
+function RecoveryContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryId = searchParams.get("id") || searchParams.get("oppId");
+
   const [opportunities, setOpportunities] = useState<RecoveryOpportunity[]>([]);
   const [selectedOpp, setSelectedOpp] = useState<RecoveryOpportunity | null>(null);
   const [filter, setFilter] = useState<"all" | "failed" | "pending">("all");
@@ -40,6 +44,10 @@ export default function MerchantRecoveryPage() {
       setOpportunities(data);
       if (data.length > 0) {
         setSelectedOpp((prev) => {
+          if (queryId) {
+            const match = data.find((d) => d.opportunityId === queryId);
+            if (match) return match;
+          }
           if (!prev) return data[0];
           const found = data.find((d) => d.opportunityId === prev.opportunityId);
           return found || data[0];
@@ -48,7 +56,7 @@ export default function MerchantRecoveryPage() {
     });
 
     return () => unsub();
-  }, []);
+  }, [queryId]);
 
   const activeOpp = selectedOpp || opportunities[0];
 
@@ -77,6 +85,26 @@ export default function MerchantRecoveryPage() {
       await res.json();
     } catch (e) {
       console.error("Execution error:", e);
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const handleDismissRecovery = async () => {
+    if (!activeOpp) return;
+    setExecuting(true);
+    try {
+      const res = await fetch("/api/recovery/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          opportunityId: activeOpp.opportunityId,
+          action: "dismiss"
+        })
+      });
+      await res.json();
+    } catch (e) {
+      console.error("Dismiss error:", e);
     } finally {
       setExecuting(false);
     }
@@ -160,7 +188,7 @@ export default function MerchantRecoveryPage() {
                   filter === "all" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
                 }`}
               >
-                All Items ({opportunities.length})
+                All ({opportunities.length})
               </button>
               <button
                 onClick={() => setFilter("failed")}
@@ -168,7 +196,7 @@ export default function MerchantRecoveryPage() {
                   filter === "failed" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
                 }`}
               >
-                Failed
+                Failed ({opportunities.filter((o) => o.status === "failed" || o.status === "failed_recovery").length})
               </button>
               <button
                 onClick={() => setFilter("pending")}
@@ -275,7 +303,7 @@ export default function MerchantRecoveryPage() {
 
                     <span className="px-3.5 py-1.5 bg-[#2a2a2a] text-[#D4FF00] rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>{activeOpp.decision?.model || "gemini-2.5-flash"}</span>
+                      <span>{activeOpp.decision?.model || "gemini-1.5-flash"}</span>
                     </span>
                   </div>
 
@@ -324,7 +352,7 @@ export default function MerchantRecoveryPage() {
                   <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border border-white/60 shadow-sm space-y-3">
                     <div className="flex justify-between items-center">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Strategies Evaluated</h4>
-                      <span className="text-[11px] text-gray-500">Expected Value Ranked</span>
+                      <span className="text-[11px] text-gray-500">Expected Net Value Ranked</span>
                     </div>
 
                     <div className="space-y-2.5">
@@ -453,7 +481,7 @@ export default function MerchantRecoveryPage() {
                   </div>
 
                   <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
-                    {activeOpp.status !== "recovered" ? (
+                    {activeOpp.status !== "recovered" && activeOpp.status !== "do_not_intervene" ? (
                       <>
                         <button
                           onClick={() => setShowDispatchModal(true)}
@@ -470,6 +498,14 @@ export default function MerchantRecoveryPage() {
                           <span>Approve Strategy</span>
                         </button>
                         <button
+                          onClick={handleDismissRecovery}
+                          disabled={executing}
+                          className="px-4 py-3 bg-red-100 text-red-800 font-bold rounded-full text-xs hover:bg-red-200 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                          <span>Dismiss</span>
+                        </button>
+                        <button
                           onClick={handleSimulatePaymentRecovered}
                           disabled={executing}
                           className="px-4 py-3 bg-[#2a2a2a] text-[#D4FF00] font-extrabold rounded-full text-xs hover:bg-black transition-colors shadow-lg disabled:opacity-50 flex items-center gap-1.5"
@@ -478,10 +514,14 @@ export default function MerchantRecoveryPage() {
                           <span>Simulate Recovery</span>
                         </button>
                       </>
-                    ) : (
+                    ) : activeOpp.status === "recovered" ? (
                       <div className="px-6 py-3 bg-green-600 text-white font-bold rounded-full text-xs flex items-center gap-2 shadow-md">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Fully Recovered via UPI</span>
+                      </div>
+                    ) : (
+                      <div className="px-6 py-3 bg-gray-500 text-white font-bold rounded-full text-xs flex items-center gap-2 shadow-md">
+                        <span>Dismissed (Do Not Intervene)</span>
                       </div>
                     )}
                   </div>
@@ -505,5 +545,13 @@ export default function MerchantRecoveryPage() {
       )}
       <ReviveCopilotModal />
     </div>
+  );
+}
+
+export default function MerchantRecoveryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#2a2a2a] flex items-center justify-center text-sm font-bold text-[#D4FF00]">Loading recovery queue...</div>}>
+      <RecoveryContent />
+    </Suspense>
   );
 }

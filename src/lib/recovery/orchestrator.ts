@@ -33,11 +33,18 @@ export class RecoveryOrchestrator {
     const { payment, order, customer, sourceType = "razorpay_failure", failureCode, failureReason } = input;
     const policy = await dbService.getMerchantPolicy();
 
+    // Deterministic Opportunity ID Generator without Math.random()
     const paymentIdClean = payment.paymentId.replace(/^(pay_|PAY_)/, '').replace(/[^a-zA-Z0-9]/g, '');
     const cleanSuffix = paymentIdClean.length >= 6 
       ? paymentIdClean.slice(-8).toUpperCase()
-      : `${paymentIdClean.toUpperCase() || 'TXN'}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      : paymentIdClean.padStart(6, '0').toUpperCase();
     const opportunityId = `TXN-${cleanSuffix}`;
+
+    // Idempotency: Check existing opportunity first
+    const existingOpp = await dbService.getRecoveryOpportunityById(opportunityId);
+    if (existingOpp && (existingOpp.status === 'recovered' || existingOpp.status === 'action_executed')) {
+      return existingOpp;
+    }
 
     // Track customer failed payment count
     if (payment.customerId) {
@@ -125,7 +132,7 @@ export class RecoveryOrchestrator {
         metadata: { probability: prediction.recoveryProbability, confidence: prediction.confidence, model: predictorModel }
       });
 
-      // 4. AGENT 3: Strategy Agent
+      // 4. AGENT 3: Strategy Agent (Integrated with live BankHealth telemetry)
       const strategyResult = await runStrategyAgent({
         failureAnalysis: analysis,
         prediction,
@@ -147,6 +154,9 @@ export class RecoveryOrchestrator {
         }
       });
 
+      // Query dispatched messages count for policy contact limits
+      const dispatched = await dbService.getDispatchedMessages(opportunityId);
+
       // 5. DETERMINISTIC GUARDRAIL ENGINE (Zero LLM)
       const guardrailResult = GuardrailEngine.evaluate({
         amount: payment.amount,
@@ -154,7 +164,9 @@ export class RecoveryOrchestrator {
         recoveryProbability: strategyResult.overallProbability,
         recommendedStrategy: strategyResult.selectedStrategy,
         policy,
-        opportunity
+        opportunity,
+        existingInterventionsCount: dispatched.length,
+        lastAttemptAt: existingOpp?.updatedAt || null
       });
 
       await dbService.addAuditLog({
@@ -209,13 +221,13 @@ export class RecoveryOrchestrator {
         guardrailOutcome: guardrailResult.outcome,
         guardrailNotes: guardrailResult.notes,
         incentiveOffer,
-        model: analystModel || "gemini-2.5-flash",
+        model: analystModel || "gemini-1.5-flash",
         createdAt: new Date().toISOString()
       };
 
       await dbService.createRecoveryDecision(decision);
 
-      // Determine new status based on guardrail outcome
+      // Determine next status based on guardrail outcome
       let nextStatus: OpportunityStatus = "recovery_recommended";
       if (guardrailResult.outcome === "AUTO_EXECUTE") {
         nextStatus = "action_executed";
@@ -223,6 +235,12 @@ export class RecoveryOrchestrator {
         nextStatus = "do_not_intervene";
       } else if (guardrailResult.outcome === "HUMAN_ESCALATION") {
         nextStatus = "human_escalation";
+      }
+
+      // Enforce State Transition Matrix
+      if (!GuardrailEngine.isValidTransition("analyzing", nextStatus)) {
+        console.warn(`[RecoveryOrchestrator] Non-standard transition analyzing -> ${nextStatus}, falling back to recovery_recommended`);
+        nextStatus = "recovery_recommended";
       }
 
       // Update Opportunity
@@ -242,7 +260,7 @@ export class RecoveryOrchestrator {
 
       await dbService.updateRecoveryOpportunity(opportunityId, updatedOpp);
 
-      // 8. If Auto-Executed, trigger Recovery Action Record
+      // 9. If Auto-Executed, trigger Recovery Action Record
       if (guardrailResult.outcome === "AUTO_EXECUTE") {
         const action: RecoveryAction = {
           actionId: `ACT-${opportunityId}`,
@@ -267,7 +285,6 @@ export class RecoveryOrchestrator {
       return updatedOpp;
     } catch (error) {
       console.error("Error in recovery orchestrator:", error);
-      // Fall back safely to safe status
       const fallbackOpp = await dbService.updateRecoveryOpportunity(opportunityId, {
         status: "recovery_recommended",
         recommendedAction: "Alternate UPI Payment",
@@ -287,9 +304,14 @@ export class RecoveryOrchestrator {
     const opp = await dbService.getRecoveryOpportunityById(opportunityId);
     if (!opp) return null;
 
-    // Idempotency guard: If already recovered, return existing opportunity immediately without double-counting stats
+    // Idempotency guard: If already recovered, return existing opportunity immediately
     if (opp.status === "recovered") {
       return opp;
+    }
+
+    // Verify State Machine Transition Integrity
+    if (!GuardrailEngine.isValidTransition(opp.status, "recovered")) {
+      console.warn(`[RecoveryOrchestrator] Warning: transition ${opp.status} -> recovered`);
     }
 
     // Update Opportunity Status to recovered
@@ -317,20 +339,24 @@ export class RecoveryOrchestrator {
     };
     await dbService.createRecoveryOutcome(outcome);
 
-    // Update Customer Profile
+    // Update Customer Profile (Deduplicated check)
     if (opp.customerId) {
       const cust = await dbService.getCustomerById(opp.customerId);
       if (cust) {
-        cust.successfulPayments += 1;
-        cust.totalSpend += opp.amount;
-        cust.recoveryHistory.push({
-          opportunityId,
-          strategy: opp.selectedStrategy,
-          recovered: true,
-          amount: opp.amount,
-          date: new Date().toISOString()
-        });
-        await dbService.createCustomer(cust);
+        const alreadyRecorded = (cust.recoveryHistory || []).some(h => h.opportunityId === opportunityId && h.recovered);
+        if (!alreadyRecorded) {
+          cust.successfulPayments = (cust.successfulPayments || 0) + 1;
+          cust.totalSpend = (cust.totalSpend || 0) + opp.amount;
+          cust.recoveryHistory = cust.recoveryHistory || [];
+          cust.recoveryHistory.push({
+            opportunityId,
+            strategy: opp.selectedStrategy,
+            recovered: true,
+            amount: opp.amount,
+            date: new Date().toISOString()
+          });
+          await dbService.createCustomer(cust);
+        }
       }
     }
 

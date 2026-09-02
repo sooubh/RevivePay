@@ -144,7 +144,7 @@ export default function MerchantAuditPage() {
             {/* Filter bar */}
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-gray-100">
               <div className="flex items-center gap-2 overflow-x-auto">
-                {["ALL", "AI_AGENT", "GUARDRAIL_ENGINE", "SYSTEM", "CUSTOMER"].map((f) => (
+                {["ALL", "AI_AGENT", "GUARDRAIL_ENGINE", "MERCHANT", "SYSTEM", "CUSTOMER"].map((f) => (
                   <button
                     key={f}
                     onClick={() => setFilterType(f)}

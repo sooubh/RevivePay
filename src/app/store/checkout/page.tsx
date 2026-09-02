@@ -7,13 +7,15 @@ import StoreHeader from "@/components/store/StoreHeader";
 import StoreFooter from "@/components/store/StoreFooter";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
 import { OrderItem } from "@/lib/types";
-import { Lock, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, ArrowRight, ShieldCheck, AlertCircle } from "lucide-react";
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [customer, setCustomer] = useState<{ customerId: string; name: string; email?: string } | null>(null);
+  const [formErrors, setFormErrors] = useState<{ [k: string]: string }>({});
+  const [generalError, setGeneralError] = useState("");
 
   // Form State
   const [email, setEmail] = useState("sarah.j@example.com");
@@ -47,7 +49,6 @@ export default function CheckoutPage() {
         if (items && items.length > 0) {
           setCart(items);
         } else {
-          // Default item if cart is empty
           setCart([
             {
               productId: "PROD-001",
@@ -81,7 +82,26 @@ export default function CheckoutPage() {
   const tax = Math.round(subtotal * 0.05); // 5% GST
   const total = subtotal + shippingFee + tax;
 
+  const validateForm = () => {
+    const errors: { [k: string]: string } = {};
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = "Valid email address is required";
+    }
+    if (!firstName.trim()) errors.firstName = "First name is required";
+    if (!lastName.trim()) errors.lastName = "Last name is required";
+    if (!address.trim()) errors.address = "Street address is required";
+    if (!city.trim()) errors.city = "City is required";
+    if (!zipcode.trim() || !/^\d{6}$/.test(zipcode.replace(/\s/g, ""))) {
+      errors.zipcode = "Valid 6-digit Indian PIN code is required";
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleProceedToPayment = async () => {
+    setGeneralError("");
+    if (!validateForm()) return;
+
     setLoading(true);
     try {
       const res = await fetch("/api/razorpay/create-order", {
@@ -108,11 +128,11 @@ export default function CheckoutPage() {
       if (data.success && data.orderId) {
         router.push(`/store/payment?orderId=${data.orderId}&rzpOrder=${data.razorpayOrderId}&amount=${data.amount}`);
       } else {
-        alert("Failed to initiate order. Please try again.");
+        setGeneralError(data.error || "Failed to initiate order. Please try again.");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Order creation error:", e);
-      alert("Error initiating checkout.");
+      setGeneralError("Network error initiating checkout.");
     } finally {
       setLoading(false);
     }
@@ -122,24 +142,31 @@ export default function CheckoutPage() {
     <div className="bg-[#fff8f6] text-[#271814] font-sans min-h-screen flex flex-col relative overflow-x-hidden">
       <StoreHeader cartCount={cart.length} />
 
-      <main className="flex-grow pt-[110px] pb-24 px-6 md:px-16 max-w-[1440px] mx-auto w-full">
+      <main className="flex-grow pt-[110px] pb-24 px-4 sm:px-6 md:px-16 max-w-[1440px] mx-auto w-full">
         {/* Step Indicator */}
-        <div className="flex items-center justify-center space-x-4 mb-10 text-xs font-bold uppercase tracking-wider">
+        <div className="flex items-center justify-center space-x-2 sm:space-x-4 mb-10 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
           <div className="flex items-center text-[#b32a03]">
-            <span className="w-7 h-7 rounded-full bg-[#b32a03] text-white flex items-center justify-center mr-2 shadow-sm">1</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#b32a03] text-white flex items-center justify-center mr-1.5 shadow-sm font-black text-xs">1</span>
             <span>Information</span>
           </div>
-          <div className="h-[2px] w-8 md:w-16 bg-[#b32a03]/30"></div>
+          <div className="h-[2px] w-4 sm:w-8 md:w-16 bg-[#b32a03]/30"></div>
           <div className="flex items-center text-[#5a413a] opacity-60">
-            <span className="w-7 h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-2">2</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-1.5 font-black text-xs">2</span>
             <span>Payment</span>
           </div>
-          <div className="h-[2px] w-8 md:w-16 bg-[#e3beb6]/40"></div>
+          <div className="h-[2px] w-4 sm:w-8 md:w-16 bg-[#e3beb6]/40"></div>
           <div className="flex items-center text-[#5a413a] opacity-60">
-            <span className="w-7 h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-2">3</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-1.5 font-black text-xs">3</span>
             <span>Confirmation</span>
           </div>
         </div>
+
+        {generalError && (
+          <div className="max-w-xl mx-auto mb-6 p-4 bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{generalError}</span>
+          </div>
+        )}
 
         {/* 2-Column Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-start">
@@ -153,10 +180,16 @@ export default function CheckoutPage() {
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-[#f8f9fc] border border-[#e3beb6] rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (formErrors.email) setFormErrors(prev => ({ ...prev, email: "" }));
+                  }}
+                  className={`w-full bg-[#f8f9fc] border rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none ${
+                    formErrors.email ? "border-red-500" : "border-[#e3beb6]"
+                  }`}
                   placeholder="name@example.com"
                 />
+                {formErrors.email && <span className="text-[11px] text-red-600 mt-1 block">{formErrors.email}</span>}
               </div>
             </section>
 
@@ -170,18 +203,30 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full bg-[#f8f9fc] border border-[#e3beb6] rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none"
+                      onChange={(e) => {
+                        setFirstName(e.target.value);
+                        if (formErrors.firstName) setFormErrors(prev => ({ ...prev, firstName: "" }));
+                      }}
+                      className={`w-full bg-[#f8f9fc] border rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none ${
+                        formErrors.firstName ? "border-red-500" : "border-[#e3beb6]"
+                      }`}
                     />
+                    {formErrors.firstName && <span className="text-[11px] text-red-600 mt-1 block">{formErrors.firstName}</span>}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-[#5a413a] uppercase mb-1.5">Last Name</label>
                     <input
                       type="text"
                       value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="w-full bg-[#f8f9fc] border border-[#e3beb6] rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none"
+                      onChange={(e) => {
+                        setLastName(e.target.value);
+                        if (formErrors.lastName) setFormErrors(prev => ({ ...prev, lastName: "" }));
+                      }}
+                      className={`w-full bg-[#f8f9fc] border rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none ${
+                        formErrors.lastName ? "border-red-500" : "border-[#e3beb6]"
+                      }`}
                     />
+                    {formErrors.lastName && <span className="text-[11px] text-red-600 mt-1 block">{formErrors.lastName}</span>}
                   </div>
                 </div>
 
@@ -190,9 +235,15 @@ export default function CheckoutPage() {
                   <input
                     type="text"
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full bg-[#f8f9fc] border border-[#e3beb6] rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none"
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      if (formErrors.address) setFormErrors(prev => ({ ...prev, address: "" }));
+                    }}
+                    className={`w-full bg-[#f8f9fc] border rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none ${
+                      formErrors.address ? "border-red-500" : "border-[#e3beb6]"
+                    }`}
                   />
+                  {formErrors.address && <span className="text-[11px] text-red-600 mt-1 block">{formErrors.address}</span>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -201,18 +252,31 @@ export default function CheckoutPage() {
                     <input
                       type="text"
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="w-full bg-[#f8f9fc] border border-[#e3beb6] rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none"
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        if (formErrors.city) setFormErrors(prev => ({ ...prev, city: "" }));
+                      }}
+                      className={`w-full bg-[#f8f9fc] border rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none ${
+                        formErrors.city ? "border-red-500" : "border-[#e3beb6]"
+                      }`}
                     />
+                    {formErrors.city && <span className="text-[11px] text-red-600 mt-1 block">{formErrors.city}</span>}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-[#5a413a] uppercase mb-1.5">PIN Code</label>
                     <input
                       type="text"
                       value={zipcode}
-                      onChange={(e) => setZipcode(e.target.value)}
-                      className="w-full bg-[#f8f9fc] border border-[#e3beb6] rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none"
+                      onChange={(e) => {
+                        setZipcode(e.target.value);
+                        if (formErrors.zipcode) setFormErrors(prev => ({ ...prev, zipcode: "" }));
+                      }}
+                      placeholder="e.g. 400001"
+                      className={`w-full bg-[#f8f9fc] border rounded-xl px-4 py-3 text-sm text-[#271814] focus:border-[#b32a03] outline-none ${
+                        formErrors.zipcode ? "border-red-500" : "border-[#e3beb6]"
+                      }`}
                     />
+                    {formErrors.zipcode && <span className="text-[11px] text-red-600 mt-1 block">{formErrors.zipcode}</span>}
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-[#5a413a] uppercase mb-1.5">Country</label>

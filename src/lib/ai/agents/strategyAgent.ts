@@ -1,4 +1,5 @@
 import { callGeminiStructured } from "../gemini";
+import { BankHealthService } from "@/lib/telemetry/bankHealth";
 import {
   FailureAnalysisResult,
   RecoveryPredictionResult,
@@ -31,73 +32,111 @@ export async function runStrategyAgent(input: StrategyAgentInput): Promise<Strat
   const { failureAnalysis, prediction, payment, customer, policy } = input;
   const amount = payment.amount;
   const category = failureAnalysis.failureCategory;
+  const attempts = Math.max(1, payment.attemptNumber || 1);
+  const exceedsRetries = attempts >= policy.maxRetries;
 
-  // Build candidate strategy evaluations with expected value scoring
+  // Query live payment rail telemetry
+  const sbiNode = BankHealthService.getNode("SBIN");
+  const upiIntentNode = BankHealthService.getNode("UPI_PHONEPE_GPAY") || BankHealthService.getNode("UPI_NPCI");
+
   const candidates: StrategyEvaluation[] = [];
 
-  // Strategy 1: Retry Now
+  // Strategy 1: Retry Now (Immediate 1-Click Retry)
   let retryNowProb = 0.31;
-  if (category === "temporary_technical") retryNowProb = 0.84;
-  else if (category === "card_declined") retryNowProb = 0.31;
+  if (category === "network_timeout") retryNowProb = 0.88;
+  else if (category === "temporary_technical") retryNowProb = 0.84;
+  else if (category === "card_declined") retryNowProb = 0.30;
   else if (category === "abandonment") retryNowProb = 0.15;
+  else if (category === "insufficient_funds") retryNowProb = 0.08;
+  if (exceedsRetries) retryNowProb = Math.min(0.20, retryNowProb * 0.3);
+
   candidates.push({
     strategy: "retry_now",
     label: "Retry now",
-    probability: retryNowProb,
+    probability: Number(retryNowProb.toFixed(2)),
     expectedRecovery: Math.round(retryNowProb * amount),
     friction: "low",
     interventionCost: 0,
     score: Math.round(retryNowProb * amount),
-    reasoning: category === "temporary_technical"
-      ? "Immediate retry recommended for transient gateway errors"
-      : "Low probability of success for non-technical declines"
+    reasoning: category === "network_timeout" || category === "temporary_technical"
+      ? "Immediate retry is optimal for transient gateway timeouts"
+      : "Low recovery probability for non-technical or authorization failures"
   });
 
-  // Strategy 2: Delayed Retry
-  let delayedProb = 0.61;
+  // Strategy 2: Delayed Retry (Scheduled Retry Window)
+  let delayedProb = 0.50;
   if (category === "insufficient_funds") delayedProb = 0.68;
   else if (category === "temporary_technical") delayedProb = 0.72;
+  else if (category === "card_declined") delayedProb = 0.45;
+  if (exceedsRetries) delayedProb = Math.min(0.25, delayedProb * 0.4);
+
   candidates.push({
     strategy: "delayed_retry",
     label: "Retry later",
-    probability: delayedProb,
+    probability: Number(delayedProb.toFixed(2)),
     expectedRecovery: Math.round(delayedProb * amount),
     friction: "low",
     interventionCost: 0,
-    score: Math.round(delayedProb * amount * 0.95), // slight discount for delay
-    reasoning: "Delayed retry provides window for account balance or limit reset"
+    score: Math.round(delayedProb * amount * 0.95),
+    reasoning: "Delayed retry allows time for account balance or bank transaction limits to refresh"
   });
 
-  // Strategy 3: Alternate Payment Method (UPI)
+  // Strategy 3: Alternate Payment Method (UPI / Netbanking Switch)
   let alternateProb = 0.82;
-  if (customer && customer.preferredPaymentMethod === "upi") alternateProb = 0.86;
-  if (category === "card_declined") alternateProb = 0.82;
+  let alternateReasoning = "Rerouting to alternate payment rail bypasses issuer restrictions with lowest customer friction";
+  let alternateLabel = "Alternate UPI";
+
+  if (category === "card_declined") alternateProb = 0.85;
+  if (customer && customer.preferredPaymentMethod === "upi") alternateProb = 0.88;
+
+  // Live Telemetry Failover Boost: If SBI Netbanking is degraded, boost UPI Intent rail
+  if (sbiNode && sbiNode.status === "degraded" && (payment.paymentMethod === "netbanking" || failureAnalysis.rootCause.includes("SBI"))) {
+    alternateProb = 0.92;
+    alternateLabel = "Instant UPI (PhonePe / GPay) Failover";
+    alternateReasoning = `Live telemetry indicates SBI Netbanking latency is ${sbiNode.latencyMs}ms (${sbiNode.status}). Auto-rerouting to sub-300ms UPI Intent rail.`;
+  }
+
   candidates.push({
     strategy: "alternate_payment",
-    label: "Alternate UPI",
-    probability: alternateProb,
+    label: alternateLabel,
+    probability: Number(alternateProb.toFixed(2)),
     expectedRecovery: Math.round(alternateProb * amount),
     friction: "low",
     interventionCost: 0,
     score: Math.round(alternateProb * amount),
-    reasoning: "Higher estimated recovery with lower customer friction"
+    reasoning: alternateReasoning
   });
 
-  // Strategy 4: Recovery Link
+  // Strategy 4: Recovery Link (1-Click Personalized Link)
   let linkProb = 0.58;
-  if (category === "abandonment") linkProb = 0.76;
+  if (category === "abandonment") linkProb = 0.78;
+  if (category === "user_cancelled") linkProb = 0.68;
   candidates.push({
     strategy: "recovery_link",
     label: "Recovery Link",
-    probability: linkProb,
+    probability: Number(linkProb.toFixed(2)),
     expectedRecovery: Math.round(linkProb * amount),
     friction: "medium",
     interventionCost: 5,
     score: Math.round(linkProb * amount - 5),
-    reasoning: "Convenient 1-click checkout recovery link sent to customer"
+    reasoning: "Direct 1-click recovery link with prefilled basket captures intent before decay"
   });
 
-  // Strategy 5: Human Escalation (for high value)
+  // Strategy 5: Customer Notification (WhatsApp / SMS Alert)
+  let notifProb = 0.62;
+  if (category === "abandonment" || category === "user_cancelled") notifProb = 0.74;
+  candidates.push({
+    strategy: "customer_notification",
+    label: "Customer WhatsApp / SMS Alert",
+    probability: Number(notifProb.toFixed(2)),
+    expectedRecovery: Math.round(notifProb * amount),
+    friction: "medium",
+    interventionCost: 3,
+    score: Math.round(notifProb * amount - 3),
+    reasoning: "Multi-channel reminder re-engages customer on preferred mobile channel"
+  });
+
+  // Strategy 6: Human Escalation (VIP Concierge)
   let humanProb = 0.88;
   candidates.push({
     strategy: "human_escalation",
@@ -108,11 +147,11 @@ export async function runStrategyAgent(input: StrategyAgentInput): Promise<Strat
     interventionCost: 150,
     score: Math.round(humanProb * amount - 150),
     reasoning: amount >= policy.humanApprovalThreshold
-      ? "High transaction value warrants personal assistance"
-      : "Intervention friction disproportionate for standard transaction"
+      ? "High transaction value warrants personal VIP concierge assistance"
+      : "High operational intervention cost disproportionate for standard transaction"
   });
 
-  // Strategy 6: Do Nothing (low probability or low value)
+  // Strategy 7: Do Nothing
   candidates.push({
     strategy: "do_nothing",
     label: "Do Not Intervene",
@@ -121,34 +160,30 @@ export async function runStrategyAgent(input: StrategyAgentInput): Promise<Strat
     friction: "low",
     interventionCost: 0,
     score: 0,
-    reasoning: "Leave transaction alone to prevent unnecessary customer friction"
+    reasoning: "Suppress intervention to prevent unnecessary customer friction or spam"
   });
 
-  // Select optimal candidate
-  // Filter out human_escalation unless amount >= humanApprovalThreshold
+  // Optimal selection considering merchant policy
   const viable = candidates.filter(c => {
     if (c.strategy === "human_escalation" && amount < policy.humanApprovalThreshold) return false;
     if (c.strategy === "do_nothing") return false;
+    if (exceedsRetries && (c.strategy === "retry_now" || c.strategy === "delayed_retry")) return false;
     return true;
   });
 
   viable.sort((a, b) => b.score - a.score);
   const best = viable[0] || candidates[0];
 
-  const fallback: {
-    selectedStrategy: RecoveryStrategyType;
-    selectedStrategyLabel: string;
-    reasoning: string;
-  } = {
+  const fallback = {
     selectedStrategy: best.strategy,
     selectedStrategyLabel: best.label,
     reasoning: best.reasoning
   };
 
   const systemPrompt = `You are the Strategy Agent for RevivePay.
-Evaluate candidate recovery strategies based on expected recovery value (Probability × Amount), friction, and customer profile.
+Evaluate candidate recovery strategies using Expected Recovery Value = (Probability × Amount) - Cost and customer friction.
 Select the optimal strategy.
-Respond with strict JSON matching:
+Respond strictly in JSON matching:
 {
   "selectedStrategy": "retry_now" | "delayed_retry" | "alternate_payment" | "recovery_link" | "customer_notification" | "human_escalation" | "do_nothing",
   "selectedStrategyLabel": string,
@@ -157,20 +192,18 @@ Respond with strict JSON matching:
 
   const userPrompt = `Evaluation Input:
 - Amount: ₹${amount}
+- Attempt Count: ${attempts} (Max Allowed: ${policy.maxRetries})
 - Failure Category: ${category}
 - Root Cause: ${failureAnalysis.rootCause}
 - Recovery Probability: ${prediction.recoveryProbability}
 - Customer Preferred Method: ${customer?.preferredPaymentMethod || "unknown"}
-- Candidate Strategies: ${JSON.stringify(candidates.map(c => ({ strategy: c.strategy, label: c.label, prob: c.probability, expected: c.expectedRecovery })))}`;
+- Candidate Evaluations: ${JSON.stringify(candidates.map(c => ({ strategy: c.strategy, label: c.label, prob: c.probability, expected: c.expectedRecovery })))}`;
 
-  const response = await callGeminiStructured<{
-    selectedStrategy: RecoveryStrategyType;
-    selectedStrategyLabel: string;
-    reasoning: string;
-  }>(systemPrompt, userPrompt, fallback);
+  const response = await callGeminiStructured<typeof fallback>(systemPrompt, userPrompt, fallback);
 
-  const selectedStrategy = response.result.selectedStrategy || best.strategy;
-  const selectedEval = candidates.find(c => c.strategy === selectedStrategy) || best;
+  // Validate that the LLM selected a valid, viable candidate
+  const rawSelected = response.result.selectedStrategy;
+  const selectedEval = candidates.find(c => c.strategy === rawSelected) || best;
 
   return {
     strategiesEvaluated: candidates,
@@ -178,7 +211,9 @@ Respond with strict JSON matching:
     selectedStrategyLabel: selectedEval.label,
     expectedRecovery: selectedEval.expectedRecovery,
     overallProbability: selectedEval.probability,
-    reasoning: response.result.reasoning || selectedEval.reasoning,
+    reasoning: response.result.reasoning && response.result.reasoning.trim().length > 10
+      ? response.result.reasoning.trim()
+      : selectedEval.reasoning,
     model: response.model
   };
 }

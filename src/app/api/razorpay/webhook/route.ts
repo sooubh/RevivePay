@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/razorpay/client";
 import { dbService } from "@/lib/firebase/db";
 import { RecoveryOrchestrator } from "@/lib/recovery/orchestrator";
+import { BankHealthService } from "@/lib/telemetry/bankHealth";
+import { ErrorNormalizer } from "@/lib/telemetry/errorNormalizer";
 import { Payment } from "@/lib/types";
 
-// Idempotency tracking set for processed webhook IDs
+// Idempotency tracking set for processed webhook IDs in instance runtime
 const processedEvents = new Set<string>();
 
 export async function POST(req: NextRequest) {
@@ -40,8 +42,9 @@ export async function POST(req: NextRequest) {
     const amount = paymentEntity ? Math.round(paymentEntity.amount / 100) : Math.round((orderEntity?.amount || 0) / 100);
     const currency = paymentEntity?.currency || "INR";
     const method = (paymentEntity?.method || "card") as any;
+    const bankCode = paymentEntity?.bank || (method === "upi" ? "UPI_NPCI" : "HDFC");
 
-    console.log(`[Webhook] Processing event: ${event} for payment ${razorpayPaymentId} (₹${amount})`);
+    console.log(`[Webhook] Processing event: ${event} for payment ${razorpayPaymentId} (₹${amount}) via ${method}`);
 
     // Handle Payment Failed Event
     if (event === "payment.failed") {
@@ -60,8 +63,25 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const failureReason = paymentEntity?.error_description || "Card issuer or bank declined payment";
-      const failureCode = paymentEntity?.error_code || "BAD_REQUEST_ERROR";
+      // Granular Error Normalization across gateways & switches
+      const normalizedError = ErrorNormalizer.normalizeRazorpay({
+        code: paymentEntity?.error_code,
+        description: paymentEntity?.error_description,
+        source: paymentEntity?.error_source,
+        step: paymentEntity?.error_step,
+        reason: paymentEntity?.error_reason,
+        bank: bankCode,
+        paymentMethod: method
+      });
+
+      // Update Live Telemetry in BankHealthService
+      BankHealthService.recordMetric({
+        rail: method === "upi" ? "UPI" : method === "netbanking" ? "NETBANKING" : "CARD",
+        bankCode: bankCode || "RZP_ORCH",
+        latencyMs: 1200,
+        success: false,
+        errorCode: normalizedError.rawCode
+      });
 
       let order = null;
       if (razorpayOrderId) {
@@ -79,8 +99,8 @@ export async function POST(req: NextRequest) {
         currency,
         paymentMethod: method,
         status: "failed",
-        failureCode,
-        failureReason,
+        failureCode: normalizedError.rawCode,
+        failureReason: normalizedError.rootCause,
         attemptNumber: 1,
         razorpayPaymentId,
         razorpayOrderId,
@@ -94,14 +114,14 @@ export async function POST(req: NextRequest) {
 
       await dbService.createPayment(paymentRecord);
 
-      // Trigger Multi-Agent Recovery Pipeline
+      // Trigger Multi-Agent AI Recovery Pipeline
       const opportunity = await RecoveryOrchestrator.processPaymentFailure({
         payment: paymentRecord,
         order,
         customer,
         sourceType: "razorpay_failure",
-        failureCode,
-        failureReason
+        failureCode: normalizedError.rawCode,
+        failureReason: normalizedError.rootCause
       });
 
       return NextResponse.json({
@@ -116,6 +136,14 @@ export async function POST(req: NextRequest) {
 
     // Handle Payment Captured / Success Event
     if (event === "payment.captured" || event === "order.paid") {
+      // Record Positive Telemetry
+      BankHealthService.recordMetric({
+        rail: method === "upi" ? "UPI" : method === "netbanking" ? "NETBANKING" : "CARD",
+        bankCode: bankCode || "RZP_ORCH",
+        latencyMs: 380,
+        success: true
+      });
+
       if (razorpayOrderId) {
         await dbService.updateOrder(razorpayOrderId, { status: "paid" });
       }
@@ -136,13 +164,14 @@ export async function POST(req: NextRequest) {
       };
       await dbService.createPayment(paymentRecord);
 
-      // Check if this payment recovers an existing opportunity
+      // Match strictly by order ID or payment ID (eliminating loose amount matching)
       const opps = await dbService.getRecoveryOpportunities();
       const matchingOpp = opps.find(
-        o => (o.orderId && o.orderId === razorpayOrderId) || o.paymentId === razorpayPaymentId || (o.amount === amount && o.status !== "recovered")
+        o => (razorpayOrderId && o.orderId === razorpayOrderId) || 
+             (razorpayPaymentId && o.paymentId === razorpayPaymentId)
       );
 
-      if (matchingOpp) {
+      if (matchingOpp && matchingOpp.status !== "recovered") {
         await RecoveryOrchestrator.processRecoverySuccess(matchingOpp.opportunityId, method);
       } else {
         await dbService.addAuditLog({

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import StoreHeader from "@/components/store/StoreHeader";
@@ -20,7 +20,9 @@ import {
   ArrowRight,
   RefreshCw,
   ExternalLink,
-  Tag
+  Tag,
+  Zap,
+  Smartphone
 } from "lucide-react";
 
 function PaymentContent() {
@@ -31,6 +33,7 @@ function PaymentContent() {
   const rzpOrderParam = searchParams.get("rzpOrder") || "";
   const oppIdParam = searchParams.get("oppId") || "";
   const queryAmount = Number(searchParams.get("amount")) || 4999;
+  const nameParam = searchParams.get("name") || "";
 
   const [paymentMethod, setPaymentMethod] = useState<"upi" | "card" | "netbanking">("upi");
   const [loading, setLoading] = useState(false);
@@ -42,7 +45,9 @@ function PaymentContent() {
   const [errorMessage, setErrorMessage] = useState("");
   const [opportunityData, setOpportunityData] = useState<RecoveryOpportunity | null>(null);
   const [countdown, setCountdown] = useState<number>(895);
+  const [showQrModal, setShowQrModal] = useState(false);
 
+  // Active countdown timer
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -57,6 +62,8 @@ function PaymentContent() {
       try {
         setCustomer(JSON.parse(savedCustomer));
       } catch (e) {}
+    } else if (nameParam) {
+      setCustomer({ name: decodeURIComponent(nameParam), customerId: "CUS-8F42K1" });
     }
 
     // Subscribe to recovery opportunity if oppId in URL query
@@ -74,6 +81,21 @@ function PaymentContent() {
             selectedStrategy: opp.selectedStrategy,
             amount: opp.amount
           });
+          // Auto-hydrate customer if missing in localStorage
+          if (opp.customerName || opp.customerEmail || opp.customerId) {
+            setCustomer((prev: any) => ({
+              ...prev,
+              customerId: opp.customerId || prev?.customerId || "CUS-8F42K1",
+              name: opp.customerName || prev?.name || "Customer",
+              email: opp.customerEmail || prev?.email || "customer@example.com"
+            }));
+          }
+          // Dynamic countdown synchronization based on creation timestamp
+          if (opp.createdAt) {
+            const elapsedSec = Math.floor((Date.now() - new Date(opp.createdAt).getTime()) / 1000);
+            const totalExpiry = opp.incentiveOffer?.expirySeconds || 900;
+            setCountdown(Math.max(0, totalExpiry - elapsedSec));
+          }
           if (opp.status === "recovered") {
             setIsRecovered(true);
           }
@@ -94,15 +116,34 @@ function PaymentContent() {
         document.body.removeChild(script);
       } catch (e) {}
     };
-  }, [oppIdParam]);
+  }, [oppIdParam, nameParam]);
 
-  // STEP 1 & 2 & 3: Standard Razorpay Web Checkout & Signature Verification Flow
+  // Dynamic Net Recovery Amount after margin-safe incentive deductions
+  const netRecoveryAmount = useMemo(() => {
+    const base = opportunityData?.amount || failureState?.amount || queryAmount;
+    if (opportunityData?.incentiveOffer && opportunityData.incentiveOffer.type !== "none") {
+      const discount = opportunityData.incentiveOffer.discountAmount || 0;
+      return Math.max(1, base - discount);
+    }
+    return base;
+  }, [opportunityData, failureState, queryAmount]);
+
+  // Real NPCI UPI Intent URI for Mobile App Choosers
+  const upiIntentUri = useMemo(() => {
+    const payeeVpa = "revivepay@icici";
+    const payeeName = "RevenueOS Footwear";
+    const txnNote = `Order ${orderId}`;
+    const amountStr = netRecoveryAmount.toFixed(2);
+    const refId = activeOppId || orderId;
+    return `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&am=${amountStr}&cu=INR&tn=${encodeURIComponent(txnNote)}&tr=${encodeURIComponent(refId)}`;
+  }, [netRecoveryAmount, orderId, activeOppId]);
+
+  // Standard Razorpay Web Checkout
   const handleRazorpayStandardCheckout = async () => {
     setLoading(true);
     setErrorMessage("");
 
     try {
-      // 1. Call Backend to Create Order
       const createRes = await fetch("/api/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,7 +162,6 @@ function PaymentContent() {
         throw new Error(orderData.error || "Failed to create order on server");
       }
 
-      // 2. Open Razorpay Standard Checkout Modal
       if (typeof window !== "undefined" && (window as any).Razorpay) {
         const options = {
           key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || orderData.key_id || "",
@@ -139,7 +179,6 @@ function PaymentContent() {
           theme: {
             color: "#b32a03"
           },
-          // 3. On Payment Success: Call Backend to Verify HMAC Signature
           handler: async function (response: {
             razorpay_payment_id: string;
             razorpay_order_id: string;
@@ -179,29 +218,25 @@ function PaymentContent() {
           modal: {
             ondismiss: function () {
               setLoading(false);
-              console.log("Razorpay checkout modal closed by user.");
             }
           }
         };
 
         const rzp = new (window as any).Razorpay(options);
         rzp.on("payment.failed", function (resp: any) {
-          console.log("Razorpay payment failed:", resp);
           handleTriggerFailure();
         });
         rzp.open();
       } else {
-        // Fallback if modal script blocked
         handleSimulatedDirectPayment();
       }
     } catch (err: any) {
-      console.warn("Checkout initialization notice:", err);
       setLoading(false);
       setErrorMessage(err?.message || "Failed to launch Razorpay checkout.");
     }
   };
 
-  // Golden Demo Payment Failure Trigger (Simulates Failure -> AI Diagnosis -> Guardrails -> Recovery View)
+  // Trigger Demo Payment Failure (Golden Path Pipeline)
   const handleTriggerFailure = async () => {
     setLoading(true);
     setErrorMessage("");
@@ -228,10 +263,29 @@ function PaymentContent() {
     }
   };
 
-  // Customer 1-Click Recovery Action
-  const handleCustomerRecovery = async () => {
+  // Customer 1-Click Recovery Action (with deep-link intent trigger)
+  const handleCustomerRecovery = async (appScheme?: string) => {
     setLoading(true);
+    setErrorMessage("");
+
     try {
+      // If native mobile app selected, open deep link
+      if (typeof window !== "undefined" && appScheme) {
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        if (isMobile) {
+          let customIntent = upiIntentUri;
+          if (appScheme === "phonepe") {
+            customIntent = `phonepe://pay?pa=revivepay@icici&pn=RevenueOS&am=${netRecoveryAmount.toFixed(2)}&cu=INR&tr=${activeOppId}`;
+          } else if (appScheme === "gpay") {
+            customIntent = `tez://upi/pay?pa=revivepay@icici&pn=RevenueOS&am=${netRecoveryAmount.toFixed(2)}&cu=INR&tr=${activeOppId}`;
+          } else if (appScheme === "paytm") {
+            customIntent = `paytmmp://pay?pa=revivepay@icici&pn=RevenueOS&am=${netRecoveryAmount.toFixed(2)}&cu=INR&tr=${activeOppId}`;
+          }
+          window.location.href = customIntent;
+        }
+      }
+
+      // Execute recovery settlement in RevivePay backend
       const res = await fetch("/api/recovery/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -253,15 +307,16 @@ function PaymentContent() {
             origin: { y: 0.6 }
           });
         } catch (e) {}
+      } else {
+        setErrorMessage(data.error || "Payment recovery could not be confirmed.");
       }
-    } catch (e) {
-      console.error("Recovery action error:", e);
+    } catch (e: any) {
+      setErrorMessage(e?.message || "Network error during recovery.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Direct simulated success
   const handleSimulatedDirectPayment = () => {
     setLoading(true);
     setTimeout(() => {
@@ -278,40 +333,40 @@ function PaymentContent() {
     <div className="bg-[#fff8f6] text-[#271814] font-sans min-h-screen w-full flex flex-col relative overflow-x-hidden">
       <StoreHeader />
 
-      <main className="flex-grow pt-[110px] pb-24 px-6 md:px-12 xl:px-16 w-full max-w-[1440px] mx-auto">
-        {/* Step Indicator */}
-        <div className="flex items-center justify-center space-x-4 mb-10 text-xs font-bold uppercase tracking-wider">
+      <main className="flex-grow pt-[110px] pb-24 px-4 sm:px-6 md:px-12 xl:px-16 w-full max-w-[1440px] mx-auto">
+        {/* Responsive Step Indicator */}
+        <div className="flex items-center justify-center space-x-2 sm:space-x-4 mb-8 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
           <div className="flex items-center text-[#5a413a]">
-            <span className="w-7 h-7 rounded-full bg-[#fee2dc] text-[#b32a03] flex items-center justify-center mr-2 font-black">1</span>
-            <span>Information</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#fee2dc] text-[#b32a03] flex items-center justify-center mr-1.5 font-black text-xs">1</span>
+            <span>Info</span>
           </div>
-          <div className="h-[2px] w-8 md:w-16 bg-[#b32a03]"></div>
+          <div className="h-[2px] w-4 sm:w-8 md:w-16 bg-[#b32a03]"></div>
           <div className="flex items-center text-[#b32a03]">
-            <span className="w-7 h-7 rounded-full bg-[#b32a03] text-white flex items-center justify-center mr-2 shadow-sm font-black">2</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#b32a03] text-white flex items-center justify-center mr-1.5 shadow-sm font-black text-xs">2</span>
             <span>Payment</span>
           </div>
-          <div className="h-[2px] w-8 md:w-16 bg-[#e3beb6]/40"></div>
+          <div className="h-[2px] w-4 sm:w-8 md:w-16 bg-[#e3beb6]/40"></div>
           <div className="flex items-center text-[#5a413a] opacity-60">
-            <span className="w-7 h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-2 font-black">3</span>
-            <span>Confirmation</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-full border border-[#e3beb6] flex items-center justify-center mr-1.5 font-black text-xs">3</span>
+            <span>Confirm</span>
           </div>
         </div>
 
         {/* State A: Success Confirmation */}
         {isRecovered ? (
-          <div className="max-w-xl mx-auto bg-white rounded-3xl p-10 md:p-12 shadow-2xl border border-[#e3beb6]/40 text-center space-y-6 animate-scale">
+          <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 md:p-12 shadow-2xl border border-[#e3beb6]/40 text-center space-y-6 animate-scale">
             <div className="w-20 h-20 rounded-full bg-[#D4FF00] text-black flex items-center justify-center mx-auto shadow-lg">
               <CheckCircle2 className="w-10 h-10" />
             </div>
 
             <div>
               <span className="px-3.5 py-1 bg-[#fee2dc] text-[#b32a03] text-xs font-bold rounded-full uppercase tracking-wider">
-                Payment Captured & Verified
+                Payment Captured & Recovered
               </span>
               <h1 className="text-3xl font-extrabold text-[#271814] mt-3">Order Confirmed!</h1>
               <p className="text-sm text-[#5a413a] mt-2">
-                Thank you, {customer?.name || "Sarah"}! Your payment of{" "}
-                <span className="font-extrabold text-[#b32a03]">₹{queryAmount.toLocaleString()}.00</span> was successfully completed via Razorpay.
+                Thank you, <span className="font-bold text-[#271814]">{customer?.name || "Customer"}</span>! Your payment of{" "}
+                <span className="font-extrabold text-[#b32a03]">₹{netRecoveryAmount.toLocaleString()}.00</span> was successfully processed.
               </p>
             </div>
 
@@ -321,12 +376,12 @@ function PaymentContent() {
                 <span className="font-mono font-bold text-[#271814]">{orderId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#5a413a]">Gateway</span>
-                <span className="font-bold text-[#271814]">Razorpay Standard Web Checkout</span>
+                <span className="text-[#5a413a]">Payment Rail</span>
+                <span className="font-bold text-[#271814]">UPI Instant Intent Rail</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#5a413a]">Status</span>
-                <span className="text-green-600 font-bold">HMAC Signature Verified</span>
+                <span className="text-green-600 font-bold">Captured & Verified</span>
               </div>
             </div>
 
@@ -347,8 +402,8 @@ function PaymentContent() {
             </div>
           </div>
         ) : failureState ? (
-          /* State B: Customer Simple Recovery Experience */
-          <div className="max-w-xl mx-auto bg-white rounded-3xl p-8 md:p-12 shadow-2xl border-2 border-[#ffdad6] text-center space-y-6 animate-scale">
+          /* State B: Customer High-Converting Recovery Experience */
+          <div className="max-w-xl mx-auto bg-white rounded-3xl p-6 sm:p-8 md:p-12 shadow-2xl border-2 border-[#ffdad6] text-center space-y-6 animate-scale">
             <div className="w-16 h-16 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center mx-auto shadow-sm">
               <AlertCircle className="w-8 h-8" />
             </div>
@@ -356,14 +411,20 @@ function PaymentContent() {
             <div>
               <h2 className="text-2xl md:text-3xl font-extrabold text-[#271814]">We couldn't complete your payment.</h2>
               <p className="text-sm text-[#5a413a] mt-2">
-                Try another payment method to complete your order for{" "}
+                Complete your order now with 1-click payment for{" "}
                 <span className="font-bold text-[#271814]">
-                  ₹{(opportunityData?.amount || failureState?.amount || queryAmount).toLocaleString()}.00
+                  ₹{netRecoveryAmount.toLocaleString()}.00
                 </span>.
               </p>
             </div>
 
-            <div className="bg-[#fee2dc]/40 p-6 rounded-2xl border border-[#b32a03]/20 space-y-4">
+            {errorMessage && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl text-left">
+                {errorMessage}
+              </div>
+            )}
+
+            <div className="bg-[#fee2dc]/40 p-5 sm:p-6 rounded-2xl border border-[#b32a03]/20 space-y-4">
               <div className="flex items-center justify-between text-left">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-white border border-[#e3beb6] flex items-center justify-center text-[#b32a03]">
@@ -381,7 +442,7 @@ function PaymentContent() {
                     </h4>
                     <p className="text-xs text-[#5a413a]">
                       {opportunityData?.recommendationReason ||
-                        "Instant authorization via Google Pay / PhonePe"}
+                        "Instant 1-click authorization via PhonePe / GPay / Paytm"}
                     </p>
                   </div>
                 </div>
@@ -406,27 +467,53 @@ function PaymentContent() {
                 </div>
               )}
 
+              {/* 1-Tap Mobile UPI App Choosers */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  onClick={() => handleCustomerRecovery("phonepe")}
+                  disabled={loading}
+                  className="p-2.5 bg-white border border-[#e3beb6] rounded-xl hover:border-[#b32a03] transition-all flex flex-col items-center gap-1 shadow-xs"
+                >
+                  <span className="w-6 h-6 rounded-full bg-[#5f259f] text-white flex items-center justify-center font-bold text-[10px]">Pe</span>
+                  <span className="text-[11px] font-bold text-[#271814]">PhonePe</span>
+                </button>
+                <button
+                  onClick={() => handleCustomerRecovery("gpay")}
+                  disabled={loading}
+                  className="p-2.5 bg-white border border-[#e3beb6] rounded-xl hover:border-[#b32a03] transition-all flex flex-col items-center gap-1 shadow-xs"
+                >
+                  <span className="w-6 h-6 rounded-full bg-[#4285F4] text-white flex items-center justify-center font-bold text-[10px]">G</span>
+                  <span className="text-[11px] font-bold text-[#271814]">Google Pay</span>
+                </button>
+                <button
+                  onClick={() => handleCustomerRecovery("paytm")}
+                  disabled={loading}
+                  className="p-2.5 bg-white border border-[#e3beb6] rounded-xl hover:border-[#b32a03] transition-all flex flex-col items-center gap-1 shadow-xs"
+                >
+                  <span className="w-6 h-6 rounded-full bg-[#002e6e] text-white flex items-center justify-center font-bold text-[10px]">P</span>
+                  <span className="text-[11px] font-bold text-[#271814]">Paytm</span>
+                </button>
+              </div>
+
+              {/* Main Recovery CTA Button */}
               <button
-                onClick={handleCustomerRecovery}
+                onClick={() => handleCustomerRecovery()}
                 disabled={loading}
                 className="w-full bg-[#b32a03] text-white font-bold py-4 px-6 rounded-full text-base hover:bg-[#8a1c00] transition-all flex items-center justify-center gap-2 shadow-xl shadow-[#b32a03]/25 disabled:opacity-50"
               >
                 {loading ? (
                   <RefreshCw className="w-5 h-5 animate-spin" />
-                ) : opportunityData?.selectedStrategy === "retry_now" ? (
-                  <RefreshCw className="w-5 h-5" />
                 ) : (
                   <QrCode className="w-5 h-5" />
                 )}
                 <span>
-                  {opportunityData?.selectedStrategy === "retry_now"
-                    ? `Retry ₹${(opportunityData?.amount || queryAmount).toLocaleString()}`
-                    : `Pay ₹${(opportunityData?.amount || queryAmount).toLocaleString()} with UPI`}
+                  Pay ₹{netRecoveryAmount.toLocaleString()} with 1-Click UPI
                 </span>
                 <ArrowRight className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Cart Hold Timer */}
             <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 font-medium">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-[#b32a03]" />
@@ -599,7 +686,7 @@ function PaymentContent() {
 
 export default function PaymentPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#fff8f6] flex items-center justify-center text-sm font-bold text-[#b32a03]">Loading payment...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#fff8f6] flex items-center justify-center text-sm font-bold text-[#b32a03]">Loading payment recovery...</div>}>
       <PaymentContent />
     </Suspense>
   );

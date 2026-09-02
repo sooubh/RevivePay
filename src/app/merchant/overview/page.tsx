@@ -39,8 +39,12 @@ export default function MerchantOverviewPage() {
 
     const unsubOpps = dbService.subscribeOpportunities((data) => {
       setOpportunities(data);
-      if (data.length > 0 && !selectedOpp) {
-        setSelectedOpp(data[0]);
+      if (data.length > 0) {
+        setSelectedOpp((prev) => {
+          if (!prev) return data[0];
+          const found = data.find((d) => d.opportunityId === prev.opportunityId);
+          return found || data[0];
+        });
       }
     });
 
@@ -384,7 +388,7 @@ export default function MerchantOverviewPage() {
                       Status: <span className="text-white font-bold uppercase">{activeFocus.status.replace("_", " ")}</span>
                     </div>
                     <button
-                      onClick={() => router.push(`/merchant/recovery`)}
+                      onClick={() => router.push(`/merchant/recovery?id=${activeFocus.opportunityId}`)}
                       className="bg-[#D4FF00] text-[#1c1b1b] font-bold px-6 py-3 rounded-full text-xs hover:bg-[#c5e128] transition-all flex items-center gap-2 shadow-lg"
                     >
                       <span>Open Decision Detail</span>

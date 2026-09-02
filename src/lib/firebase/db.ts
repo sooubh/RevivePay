@@ -19,21 +19,16 @@ import {
 export const dbService = {
   // Products
   getProducts: async (): Promise<Product[]> => {
-    const local = store.getProducts();
-    if (local && local.length > 0) {
-      return local;
-    }
     const remote = await firestoreSync.getProducts();
     if (remote && remote.length > 0) {
       remote.forEach(p => store.setProduct(p));
       return store.getProducts();
     }
-    // If remote is empty, seed defaults to Firestore asynchronously
-    const defaults = store.getProducts();
-    if (defaults.length > 0) {
-      firestoreSync.saveProducts(defaults).catch(() => {});
+    const local = store.getProducts();
+    if (local && local.length > 0) {
+      return local;
     }
-    return defaults;
+    return [];
   },
 
   getProductById: async (id: string): Promise<Product | null> => {
@@ -138,7 +133,7 @@ export const dbService = {
   getRecoveryOpportunities: async (): Promise<RecoveryOpportunity[]> => {
     const remote = await firestoreSync.getOpportunities();
     if (remote && remote.length > 0) {
-      remote.forEach(o => store.setRecoveryOpportunity(o));
+      store.setRecoveryOpportunitiesBatch(remote);
       return store.getRecoveryOpportunities();
     }
     return store.getRecoveryOpportunities();

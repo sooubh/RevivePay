@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, X, Send, TrendingUp, ShieldCheck, ArrowRight, Bot, Lightbulb, CheckCircle2 } from "lucide-react";
+import { Sparkles, X, Send, TrendingUp, ShieldCheck, ArrowRight, Bot, Lightbulb, CheckCircle2, Zap } from "lucide-react";
 
 interface CopilotResponse {
   summary: string;
@@ -20,7 +20,7 @@ export default function ReviveCopilotModal() {
     "Why are card declines the highest failure category?",
     "How much incremental revenue was recovered via UPI?",
     "What happens if I increase approval threshold to ₹30,000?",
-    "Summarize today's recovery performance and health status"
+    "Summarize today's recovery performance and bank health status"
   ];
 
   const handleAsk = async (queryToAsk?: string) => {
@@ -59,7 +59,7 @@ export default function ReviveCopilotModal() {
             <Sparkles className="w-3.5 h-3.5" />
           </span>
           <span>Ask Revive Copilot</span>
-          <span className="px-1.5 py-0.5 bg-white/10 text-[9px] rounded-md text-white font-mono">Gemini 2.5</span>
+          <span className="px-1.5 py-0.5 bg-white/10 text-[9px] rounded-md text-white font-mono">Gemini AI</span>
         </button>
       </div>
 
@@ -161,6 +161,30 @@ export default function ReviveCopilotModal() {
                       {response.projectedRevenueImpact}
                     </span>
                   </div>
+
+                  {/* Render Recommended Actions */}
+                  {response.suggestedActions && response.suggestedActions.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <span className="text-xs font-bold uppercase tracking-wider text-white/60">
+                        Recommended Strategic Actions
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {response.suggestedActions.map((action, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => handleAsk(action.label)}
+                            className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/10 text-left flex items-center justify-between group transition-all"
+                          >
+                            <div>
+                              <span className="text-xs font-bold text-white block">{action.label}</span>
+                              <span className="text-[10px] font-mono text-[#D4FF00] uppercase font-bold">{action.category}</span>
+                            </div>
+                            <ArrowRight className="w-3.5 h-3.5 text-[#D4FF00] opacity-0 group-hover:opacity-100 shrink-0 ml-2 transition-opacity" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Sample prompt quick chips for follow-up */}
                   <div className="flex flex-wrap gap-2 pt-2">
