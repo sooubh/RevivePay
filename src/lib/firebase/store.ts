@@ -11,8 +11,7 @@ import {
   MerchantPolicy,
   OverviewMetrics,
   OpportunityStatus,
-  RecoveryStrategyType,
-  DispatchedMessage
+  RecoveryStrategyType
 } from "@/lib/types";
 
 type ListenerCallback<T> = (data: T) => void;
@@ -27,7 +26,7 @@ class DataStore {
   private decisions: Map<string, RecoveryDecision> = new Map();
   private actions: Map<string, RecoveryAction> = new Map();
   private outcomes: Map<string, RecoveryOutcome> = new Map();
-  private dispatchedMessages: Map<string, DispatchedMessage> = new Map();
+
   private auditLogs: AuditLog[] = [];
   private policy: MerchantPolicy = {
     merchantId: "MERCH-001",
@@ -44,6 +43,7 @@ class DataStore {
   private auditListeners: Set<ListenerCallback<AuditLog[]>> = new Set();
   private singleOpportunityListeners: Map<string, Set<ListenerCallback<RecoveryOpportunity | null>>> = new Map();
   private metricsListeners: Set<ListenerCallback<OverviewMetrics>> = new Set();
+  private orderListeners: Set<ListenerCallback<Order[]>> = new Set();
 
   private constructor() {
     this.initDefaultSeed();
@@ -62,6 +62,16 @@ class DataStore {
   }
 
   public initDefaultSeed() {
+    this.products.clear();
+    this.customers.clear();
+    this.orders.clear();
+    this.payments.clear();
+    this.opportunities.clear();
+    this.decisions.clear();
+    this.outcomes.clear();
+
+    this.auditLogs = [];
+
     const defaultProducts: Product[] = [
       {
         productId: "PROD-001",
@@ -228,230 +238,262 @@ class DataStore {
 
     defaultCustomers.forEach(c => this.customers.set(c.customerId, c));
 
-    const defaultOpportunities: RecoveryOpportunity[] = [
+    const defaultOrders: Order[] = [
       {
-        opportunityId: "TXN-8921-X",
-        paymentId: "PAY-8921-X",
-        orderId: "ORD-8921-X",
+        orderId: "ORD-SHOE-001",
         customerId: "CUS-8F42K1",
         customerName: "Sarah Jenkins",
         customerEmail: "sarah.j@example.com",
-        amount: 12500,
-        currency: "INR",
-        sourceType: "razorpay_failure",
-        paymentMethod: "card",
-        failureType: "Card issuer decline",
-        attemptCount: 1,
-        status: "recovery_recommended",
-        priority: "High Priority",
-        recoveryProbability: 0.82,
-        expectedRecovery: 10200,
-        recommendedAction: "Alternate UPI",
-        recommendationReason: "Higher estimated recovery with lower customer friction.",
-        selectedStrategy: "alternate_payment",
-        decision: {
-          decisionId: "DEC-8921-X",
-          opportunityId: "TXN-8921-X",
-          failureAnalysis: {
-            failureCategory: "card_declined",
-            isRecoverable: true,
-            rootCause: "Card issuer declined transaction due to temporary fraud check or limit.",
-            customerRiskProfile: "low",
-            suggestedFocus: "Prompt alternate payment via UPI"
-          },
-          prediction: {
-            recoveryProbability: 0.82,
-            confidence: 0.91,
-            reasoning: "Customer has completed 4 of last 5 purchases via UPI successfully.",
-            keyDrivers: ["Prior UPI success rate (80%)", "High customer lifetime spend"]
-          },
-          strategiesEvaluated: [
-            {
-              strategy: "retry_now",
-              label: "Retry now",
-              probability: 0.31,
-              expectedRecovery: 3875,
-              friction: "low",
-              interventionCost: 0,
-              score: 3875,
-              reasoning: "Immediate retry has low success chance for issuer declines"
-            },
-            {
-              strategy: "delayed_retry",
-              label: "Retry later",
-              probability: 0.61,
-              expectedRecovery: 7625,
-              friction: "low",
-              interventionCost: 0,
-              score: 7625,
-              reasoning: "Delayed retry gives time for card issue resolution"
-            },
-            {
-              strategy: "alternate_payment",
-              label: "Alternate UPI",
-              probability: 0.82,
-              expectedRecovery: 10200,
-              friction: "low",
-              interventionCost: 0,
-              score: 10200,
-              reasoning: "Highest estimated recovery with lower customer friction"
-            }
-          ],
-          selectedStrategy: "alternate_payment",
-          selectedStrategyLabel: "Alternate UPI",
-          recoveryProbability: 0.82,
-          expectedRecovery: 10200,
-          recommendationReason: "Higher estimated recovery with lower customer friction.",
-          guardrailOutcome: "AUTO_EXECUTE",
-          guardrailNotes: [
-            "Within maximum retry limit (attempt 1 <= 2)",
-            "Within auto-execute threshold (₹12,500 <= ₹20,000)"
-          ],
-          model: "gemini-2.5-flash",
-          createdAt: new Date(Date.now() - 3600000).toISOString()
+        items: [
+          {
+            productId: "PROD-001",
+            name: "Aeon Performance Runner",
+            brand: "LuxeStep",
+            price: 4999,
+            size: "9",
+            quantity: 1,
+            imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuAfmxkAm9FxGl0cDWrdx4CipB_VGxi9X58jaQB9jyK7lLuDpEqIgKOTSqd4fKHnLCV8NYJj3RcHfPw3ZJ9sOr7gHPLllmwGEQk6AVXkawwCyexA9qpOe9te5yC3N7dMEramc9XRyUEJUfL4v7d-UW5BnhGfans41N3kwtG5ARGBTDzhBdjjI5Y1CAfnGkSfb8TYfgzAhtx1jbsPIMN0YzVbciNk2xTbkCrKnwK3M-THAxPfdXz-lDj-"
+          }
+        ],
+        subtotal: 4999,
+        shipping: 0,
+        tax: 250,
+        total: 4999,
+        status: "paid",
+        shippingAddress: {
+          firstName: "Sarah",
+          lastName: "Jenkins",
+          address: "Flat 402, Highline Residency",
+          apartment: "Tower B",
+          city: "Mumbai",
+          zipcode: "400001",
+          country: "India"
         },
         createdAt: new Date(Date.now() - 3600000).toISOString(),
         updatedAt: new Date(Date.now() - 3600000).toISOString()
       },
       {
-        opportunityId: "TXN-8922-Y",
-        paymentId: "PAY-8922-Y",
-        orderId: "ORD-8922-Y",
+        orderId: "ORD-COD-001",
+        customerId: "CUS-8F42K1",
+        customerName: "Sarah Jenkins",
+        customerEmail: "sarah.j@example.com",
+        items: [
+          {
+            productId: "PROD-004",
+            name: "Nike Metro Court",
+            brand: "Nike",
+            price: 3499,
+            size: "10",
+            quantity: 1,
+            imageUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuBQA0H8kzAlA8mZ6A9RrDDM_A8J7CWxmNXgC0v_KubV9B1jYe6hZPOpWdIwG34imN40ZQrH5HY3DYtecl9GirvX8RYmxdC0u-LvjS5AJNHpRXW16ktZz6Dgssx82Av9qSXQzToIb1g2-EAGDMM2IcWvDf6zDj1L3xbZUB3AVKhHZs99TEdHIPCkxc-EF6I29SghP53K9kLTxTa8CdwRrglKUjVnaJKrVrbSJZPEhWBPCU2cU-VYxNVB"
+          }
+        ],
+        subtotal: 3499,
+        shipping: 0,
+        tax: 175,
+        total: 3499,
+        status: "pending",
+        shippingAddress: {
+          firstName: "Sarah",
+          lastName: "Jenkins",
+          address: "Flat 402, Highline Residency",
+          apartment: "Tower B",
+          city: "Mumbai",
+          zipcode: "400001",
+          country: "India"
+        },
+        createdAt: new Date(Date.now() - 1800000).toISOString(),
+        updatedAt: new Date(Date.now() - 1800000).toISOString()
+      }
+    ];
+
+    defaultOrders.forEach(o => this.orders.set(o.orderId, o));
+
+    const defaultOpportunities: RecoveryOpportunity[] = [
+      {
+        opportunityId: "TXN-RETURN-001",
+        paymentId: "PAY-RETURN-001",
+        orderId: "ORD-SHOE-001",
         customerId: "CUS-8F42K1",
         customerName: "Sarah Jenkins",
         customerEmail: "sarah.j@example.com",
         amount: 4999,
         currency: "INR",
-        sourceType: "razorpay_failure",
+        sourceType: "return",
         paymentMethod: "upi",
-        failureType: "UPI failure",
+        failureType: "Return: Size 9 is too tight (Customer requested Size 10)",
         attemptCount: 1,
         status: "recovery_recommended",
         priority: "High Priority",
-        recoveryProbability: 0.84,
-        expectedRecovery: 4199,
-        recommendedAction: "Instant UPI Retry",
-        recommendationReason: "Customer historically completes 4 of 5 transactions over UPI.",
-        selectedStrategy: "retry_now",
+        recoveryProbability: 0.95,
+        expectedRecovery: 4999,
+        recommendedAction: "Size 10 Exchange",
+        recommendationReason: "• Customer reason: size mismatch (Size 9 reported too tight)\n• Replacement available: Size 10 verified in stock (8 units)\n• Order preservation: Direct exchange retains full order value (₹4,999.00)\n• Downside prevention: Issuing a refund forfeits 100% of the sale\n• Decision: Size 10 Exchange is the preferred bounded recovery action.",
+        selectedStrategy: "size_exchange",
+        productName: "Aeon Performance Runner",
+        productId: "PROD-001",
+        returnReason: "Size 9 too small / tight fit",
+        currentSize: "9",
+        replacementSize: "10",
+        replacementInStock: true,
         decision: {
-          decisionId: "DEC-8922-Y",
-          opportunityId: "TXN-8922-Y",
+          decisionId: "DEC-RETURN-001",
+          opportunityId: "TXN-RETURN-001",
+          model: "Revenue Recovery Agent (Demo Decision)",
+          selectedStrategy: "size_exchange",
+          selectedStrategyLabel: "Size 10 Exchange",
+          recoveryProbability: 0.95,
+          expectedRecovery: 4999,
+          recommendationReason: "Size mismatch identified for Aeon Performance Runner. Replacement Size 10 is in stock. Exchange preserves 100% of order value vs full refund.",
           failureAnalysis: {
-            failureCategory: "temporary_technical",
+            failureCategory: "user_cancelled",
             isRecoverable: true,
-            rootCause: "NPCI / PSP timeout during collect request.",
+            rootCause: "Shoe size too small / tight fit",
             customerRiskProfile: "low",
-            suggestedFocus: "Instant retry with same VPA"
+            suggestedFocus: "Size 10 Exchange"
           },
           prediction: {
-            recoveryProbability: 0.84,
-            confidence: 0.94,
-            reasoning: "Transient UPI gateway timeouts have 84% recovery on immediate retry.",
-            keyDrivers: ["Transient error code", "Strong UPI history"]
+            recoveryProbability: 0.95,
+            confidence: 0.95,
+            reasoning: "Customer requested exchange for size 10; item in stock.",
+            keyDrivers: ["Size mismatch", "Replacement in stock", "High customer lifetime spend"]
           },
           strategiesEvaluated: [
             {
-              strategy: "retry_now",
-              label: "Instant UPI Retry",
-              probability: 0.84,
-              expectedRecovery: 4199,
+              strategy: "size_exchange",
+              label: "Size 10 Exchange (Selected)",
+              probability: 0.95,
+              expectedRecovery: 4999,
               friction: "low",
               interventionCost: 0,
-              score: 4199,
-              reasoning: "Top recommendation for transient UPI network timeout"
+              score: 4999,
+              reasoning: "Preserves 100% order value via verified in-stock inventory."
             },
             {
-              strategy: "alternate_payment",
-              label: "Switch to Card",
-              probability: 0.65,
-              expectedRecovery: 3249,
+              strategy: "store_credit",
+              label: "Store Credit Voucher",
+              probability: 0.40,
+              expectedRecovery: 2000,
               friction: "medium",
-              interventionCost: 0,
-              score: 3249,
-              reasoning: "Viable fallback if UPI continues failing"
+              interventionCost: 200,
+              score: 1800,
+              reasoning: "Alternative retention path; higher customer drop-off than direct exchange."
+            },
+            {
+              strategy: "full_refund",
+              label: "Full Refund (Loss of Sale)",
+              probability: 0.0,
+              expectedRecovery: 0,
+              friction: "low",
+              interventionCost: 4999,
+              score: 0,
+              reasoning: "Results in complete loss of revenue (₹0 retained) and customer churn."
             }
           ],
-          selectedStrategy: "retry_now",
-          selectedStrategyLabel: "Instant UPI Retry",
-          recoveryProbability: 0.84,
-          expectedRecovery: 4199,
-          recommendationReason: "Customer historically completes 4 of 5 transactions over UPI.",
           guardrailOutcome: "AUTO_EXECUTE",
-          guardrailNotes: ["Within max retries", "Probability 84% exceeds minimum 20%"],
-          model: "gemini-2.5-flash",
-          createdAt: new Date(Date.now() - 7200000).toISOString()
+          guardrailNotes: [
+            "Customer reason: size mismatch",
+            "Replacement size available (Size 10: in stock)",
+            "Exchange preserves ₹4,999.00 order value",
+            "Refund would lose the sale"
+          ],
+          createdAt: new Date(Date.now() - 3600000).toISOString()
         },
-        createdAt: new Date(Date.now() - 7200000).toISOString(),
-        updatedAt: new Date(Date.now() - 7200000).toISOString()
+        customerRecoveryUrl: "/store/payment?oppId=TXN-RETURN-001&orderId=ORD-SHOE-001&type=return",
+        createdAt: new Date(Date.now() - 3600000).toISOString(),
+        updatedAt: new Date(Date.now() - 3600000).toISOString()
       },
       {
-        opportunityId: "TXN-8923-Z",
-        paymentId: "PAY-8923-Z",
-        orderId: "ORD-8923-Z",
-        customerId: "CUS-3B91X2",
-        customerName: "Rohan Sharma",
-        customerEmail: "rohan.s@example.com",
-        amount: 8200,
-        currency: "INR",
-        sourceType: "checkout_abandonment",
-        paymentMethod: "card",
-        failureType: "Checkout abandoned",
-        attemptCount: 1,
-        status: "recovery_recommended",
-        priority: "Medium Priority",
-        recoveryProbability: 0.58,
-        expectedRecovery: 4756,
-        recommendedAction: "Recovery Link with 1-Click UPI",
-        recommendationReason: "Customer abandoned on payment step; sending recovery link has 58% conversion.",
-        selectedStrategy: "recovery_link",
-        createdAt: new Date(Date.now() - 14400000).toISOString(),
-        updatedAt: new Date(Date.now() - 14400000).toISOString()
-      },
-      {
-        opportunityId: "TXN-8924-W",
-        paymentId: "PAY-8924-W",
-        orderId: "ORD-8924-W",
-        customerId: "CUS-7M44Q8",
-        customerName: "Ananya Patel",
-        customerEmail: "ananya.p@example.com",
-        amount: 18000,
-        currency: "INR",
-        sourceType: "subscription_failure",
-        paymentMethod: "card",
-        failureType: "Subscription payment failed",
-        attemptCount: 2,
-        status: "recovery_recommended",
-        priority: "Medium Priority",
-        recoveryProbability: 0.62,
-        expectedRecovery: 11160,
-        recommendedAction: "Customer Notification + Smart Retry",
-        recommendationReason: "Account balance refreshed after typical salary cycle.",
-        selectedStrategy: "delayed_retry",
-        createdAt: new Date(Date.now() - 28800000).toISOString(),
-        updatedAt: new Date(Date.now() - 28800000).toISOString()
-      },
-      {
-        opportunityId: "TXN-8920-R",
-        paymentId: "PAY-8920-R",
-        orderId: "ORD-8920-R",
+        opportunityId: "TXN-NDR-001",
+        paymentId: "PAY-NDR-001",
+        orderId: "ORD-COD-001",
         customerId: "CUS-8F42K1",
         customerName: "Sarah Jenkins",
         customerEmail: "sarah.j@example.com",
-        amount: 4999,
+        amount: 3499,
         currency: "INR",
-        sourceType: "razorpay_failure",
-        paymentMethod: "upi",
-        failureType: "UPI timeout recovered",
+        sourceType: "ndr",
+        paymentMethod: "cod",
+        failureType: "NDR: Cash Unavailable at Delivery (COD ₹3,499)",
         attemptCount: 1,
-        status: "recovered",
-        priority: "Medium Priority",
-        recoveryProbability: 0.84,
-        expectedRecovery: 4199,
-        recommendedAction: "Instant UPI Retry",
-        recommendationReason: "Customer historically completes 4 of 5 transactions over UPI.",
-        selectedStrategy: "retry_now",
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        updatedAt: new Date(Date.now() - 86000000).toISOString()
+        status: "recovery_recommended",
+        priority: "High Priority",
+        recoveryProbability: 0.90,
+        expectedRecovery: 3499,
+        recommendedAction: "Convert COD to Prepaid via Razorpay",
+        recommendationReason: "• Customer reason: customer could not pay cash at delivery (COD ₹3,499.00)\n• Risk tradeoff: Courier re-attempt has ~65% RTO failure rate and courier penalty fee\n• Revenue preservation: Instant Razorpay digital payment secures 100% order value upfront\n• Delivery outcome: Delivery resumes immediately without cash collection friction\n• Decision: Convert COD to Prepaid via Razorpay",
+        selectedStrategy: "cod_to_prepaid",
+        ndrReason: "Customer could not pay cash at delivery (COD)",
+        codAmount: 3499,
+        deliveryAttempts: 1,
+        deliveryStatus: "delivery_paused_pending_payment",
+        productName: "Aeon Performance Runner",
+        decision: {
+          decisionId: "DEC-NDR-001",
+          opportunityId: "TXN-NDR-001",
+          model: "Revenue Recovery Agent (Demo Decision)",
+          selectedStrategy: "cod_to_prepaid",
+          selectedStrategyLabel: "Convert COD to Prepaid",
+          recoveryProbability: 0.90,
+          expectedRecovery: 3499,
+          recommendationReason: "Customer unable to pay cash on delivery. Converting order to Razorpay prepaid eliminates RTO courier loss and secures ₹3,499.00 revenue.",
+          failureAnalysis: {
+            failureCategory: "insufficient_funds",
+            isRecoverable: true,
+            rootCause: "Cash not handy during delivery attempt 1",
+            customerRiskProfile: "low",
+            suggestedFocus: "Immediate Razorpay digital prepayment"
+          },
+          prediction: {
+            recoveryProbability: 0.90,
+            confidence: 0.90,
+            reasoning: "Customer ready to receive item but lacks exact cash; digital payment enables immediate completion.",
+            keyDrivers: ["Customer verified reachable", "Prepaid removes cash barrier", "Zero RTO return cost"]
+          },
+          strategiesEvaluated: [
+            {
+              strategy: "cod_to_prepaid",
+              label: "Convert COD to Prepaid via Razorpay (Selected)",
+              probability: 0.90,
+              expectedRecovery: 3499,
+              friction: "low",
+              interventionCost: 0,
+              score: 3499,
+              reasoning: "Secures full order value upfront and eliminates courier RTO penalty."
+            },
+            {
+              strategy: "delayed_retry",
+              label: "Reattempt Cash On Delivery",
+              probability: 0.35,
+              expectedRecovery: 1225,
+              friction: "high",
+              interventionCost: 150,
+              score: 1075,
+              reasoning: "High RTO risk (~65%) on reattempting cash delivery."
+            },
+            {
+              strategy: "full_refund",
+              label: "Cancel & Return to Origin (RTO)",
+              probability: 0.0,
+              expectedRecovery: 0,
+              friction: "low",
+              interventionCost: 200,
+              score: 0,
+              reasoning: "Total revenue loss plus courier penalty."
+            }
+          ],
+          guardrailOutcome: "AUTO_EXECUTE",
+          guardrailNotes: [
+            "Customer contact verified reachable",
+            "Courier: BlueDart Express (Attempt 1 paused)",
+            "Prepaid converts 100% order value",
+            "Eliminates RTO penalty"
+          ],
+          createdAt: new Date(Date.now() - 1800000).toISOString()
+        },
+        customerRecoveryUrl: "/store/payment?oppId=TXN-NDR-001&orderId=ORD-COD-001&type=ndr",
+        createdAt: new Date(Date.now() - 1800000).toISOString(),
+        updatedAt: new Date(Date.now() - 1800000).toISOString()
       }
     ];
 
@@ -462,89 +504,47 @@ class DataStore {
       }
     });
 
-    const defaultOutcomes: RecoveryOutcome[] = [
-      {
-        outcomeId: "OUT-8920-R",
-        opportunityId: "TXN-8920-R",
-        successful: true,
-        originalAmount: 4999,
-        amountRecovered: 4999,
-        timeToRecoverySeconds: 42,
-        customerFriction: "low",
-        recoveredPaymentMethod: "upi",
-        createdAt: new Date(Date.now() - 86000000).toISOString()
-      },
-      {
-        outcomeId: "OUT-HIST-01",
-        opportunityId: "OPP-HIST-01",
-        successful: true,
-        originalAmount: 6421,
-        amountRecovered: 6421,
-        timeToRecoverySeconds: 30,
-        customerFriction: "low",
-        recoveredPaymentMethod: "upi",
-        createdAt: new Date(Date.now() - 172800000).toISOString()
-      }
-    ];
+    const defaultOutcomes: RecoveryOutcome[] = [];
     defaultOutcomes.forEach(out => this.outcomes.set(out.outcomeId, out));
 
     this.auditLogs = [
       {
         auditId: "AUD-001",
-        opportunityId: "TXN-8921-X",
-        actorType: "SYSTEM",
-        eventType: "PAYMENT_FAILED",
-        message: "Payment failed — ₹12,500.00 (Card issuer decline)",
-        metadata: { paymentId: "PAY-8921-X", customerId: "CUS-8F42K1", amount: 12500 },
+        opportunityId: "TXN-RETURN-001",
+        actorType: "AI_AGENT",
+        agentName: "RevenueAgent",
+        eventType: "RETURN_FILED",
+        message: "Return filed: Aeon Performance Runner (Size 9 tight). AI evaluated: Size 10 Exchange preserves ₹4,999.00 (Demo estimate: 95% retention).",
+        metadata: { sourceType: "return", currentSize: "9", replacementSize: "10", expectedRecovery: 4999 },
         createdAt: new Date(Date.now() - 3600000).toISOString()
       },
       {
         auditId: "AUD-002",
-        opportunityId: "TXN-8921-X",
-        actorType: "AI_AGENT",
-        agentName: "FailureAnalyst",
-        eventType: "CONTEXT_ANALYZED",
-        message: "Context analyzed: Card decline classified as temporary fraud check.",
-        metadata: { failureCategory: "card_declined" },
-        createdAt: new Date(Date.now() - 3598000).toISOString()
+        opportunityId: "TXN-RETURN-001",
+        actorType: "GUARDRAIL_ENGINE",
+        eventType: "GUARDRAIL_EVALUATED",
+        message: "Guardrail verified: Size 10 in stock (8 units). Auto-approval passed for order preservation.",
+        metadata: { outcome: "AUTO_EXECUTE", stockVerified: true },
+        createdAt: new Date(Date.now() - 3590000).toISOString()
       },
       {
         auditId: "AUD-003",
-        opportunityId: "TXN-8921-X",
+        opportunityId: "TXN-NDR-001",
         actorType: "AI_AGENT",
-        agentName: "RecoveryPredictor",
-        eventType: "RECOVERY_PROBABILITY_ESTIMATED",
-        message: "Recovery probability estimated: 82% (Confidence: 91%)",
-        metadata: { probability: 0.82, confidence: 0.91 },
-        createdAt: new Date(Date.now() - 3596000).toISOString()
+        agentName: "RevenueAgent",
+        eventType: "NDR_FILED",
+        message: "NDR incident: COD cash unavailable on attempt 1. AI recommended: Convert COD to Razorpay prepaid (Eliminates 65% RTO risk, preserves ₹3,499.00).",
+        metadata: { sourceType: "ndr", codAmount: 3499, expectedRecovery: 3499 },
+        createdAt: new Date(Date.now() - 1800000).toISOString()
       },
       {
         auditId: "AUD-004",
-        opportunityId: "TXN-8921-X",
-        actorType: "AI_AGENT",
-        agentName: "StrategyAgent",
-        eventType: "STRATEGIES_EVALUATED",
-        message: "Strategies evaluated: Alternate UPI selected (Expected recovery: ₹10,200.00)",
-        metadata: { selectedStrategy: "alternate_payment" },
-        createdAt: new Date(Date.now() - 3594000).toISOString()
-      },
-      {
-        auditId: "AUD-005",
-        opportunityId: "TXN-8921-X",
+        opportunityId: "TXN-NDR-001",
         actorType: "GUARDRAIL_ENGINE",
         eventType: "GUARDRAIL_EVALUATED",
-        message: "Guardrail verified: Outcome AUTO_EXECUTE. (Amount within ₹20k limit)",
+        message: "Guardrail verified: Customer reachable. Razorpay payment link authorized for instant delivery unpause.",
         metadata: { outcome: "AUTO_EXECUTE" },
-        createdAt: new Date(Date.now() - 3592000).toISOString()
-      },
-      {
-        auditId: "AUD-006",
-        opportunityId: "TXN-8921-X",
-        actorType: "SYSTEM",
-        eventType: "RECOVERY_ACTION_TRIGGERED",
-        message: "Action executed: Alternate payment UI presented to customer.",
-        metadata: { actionType: "alternate_payment" },
-        createdAt: new Date(Date.now() - 3590000).toISOString()
+        createdAt: new Date(Date.now() - 1790000).toISOString()
       }
     ];
   }
@@ -573,7 +573,14 @@ class DataStore {
 
   public createOrder(order: Order): Order {
     this.orders.set(order.orderId, order);
+    this.notifyOrders();
     return order;
+  }
+
+  public getOrders(): Order[] {
+    return Array.from(this.orders.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
   }
 
   public getOrder(id: string): Order | undefined {
@@ -602,6 +609,7 @@ class DataStore {
     if (!existing) return undefined;
     const updated = { ...existing, ...updates, updatedAt: new Date().toISOString() };
     this.orders.set(key, updated);
+    this.notifyOrders();
     return updated;
   }
 
@@ -693,18 +701,6 @@ class DataStore {
     return [...this.auditLogs];
   }
 
-  public addDispatchedMessage(msg: DispatchedMessage): DispatchedMessage {
-    this.dispatchedMessages.set(msg.dispatchId, msg);
-    return msg;
-  }
-
-  public getDispatchedMessages(opportunityId?: string): DispatchedMessage[] {
-    const list = Array.from(this.dispatchedMessages.values());
-    if (opportunityId) {
-      return list.filter((m) => m.opportunityId === opportunityId);
-    }
-    return list;
-  }
 
   public getMerchantPolicy(): MerchantPolicy {
     return { ...this.policy };
@@ -721,26 +717,12 @@ class DataStore {
 
     let revenueAtRisk = 0;
     let aiRecovered = 0;
-    let incrementalRevenue = 0;
-
-    const methodMap: Record<string, { recovered: number; count: number }> = {
-      UPI: { recovered: 0, count: 0 },
-      "Razorpay Card": { recovered: 0, count: 0 },
-      Netbanking: { recovered: 0, count: 0 }
-    };
 
     const countedOutcomeIds = new Set<string>();
 
     opps.forEach((opp) => {
       if (opp.status === "recovered") {
         aiRecovered += opp.amount;
-        incrementalRevenue += Math.round(opp.amount * 0.6);
-        const m = (opp.paymentMethod || "upi").toLowerCase();
-        const mKey = m === "upi" ? "UPI" : m === "netbanking" ? "Netbanking" : "Razorpay Card";
-        if (methodMap[mKey]) {
-          methodMap[mKey].recovered += opp.amount;
-          methodMap[mKey].count += 1;
-        }
       } else if (opp.status !== "do_not_intervene") {
         revenueAtRisk += opp.amount;
       }
@@ -755,13 +737,6 @@ class DataStore {
         if (!isMatchedInOpps && !countedOutcomeIds.has(out.outcomeId)) {
           countedOutcomeIds.add(out.outcomeId);
           aiRecovered += out.amountRecovered;
-          incrementalRevenue += Math.round(out.amountRecovered * 0.6);
-          const m = (out.recoveredPaymentMethod || "upi").toLowerCase();
-          const mKey = m === "upi" ? "UPI" : m === "netbanking" ? "Netbanking" : "Razorpay Card";
-          if (methodMap[mKey]) {
-            methodMap[mKey].recovered += out.amountRecovered;
-            methodMap[mKey].count += 1;
-          }
         }
       }
     });
@@ -770,29 +745,12 @@ class DataStore {
     const recoveryRate = totalCalculated > 0 ? Number(((aiRecovered / totalCalculated) * 100).toFixed(1)) : 0;
     const pendingCount = opps.filter((o) => o.status === "recovery_recommended" || o.status === "analyzing").length;
 
-    const paymentMethodBreakdown = Object.entries(methodMap).map(([method, data]) => ({
-      method,
-      recovered: data.recovered,
-      count: data.count
-    }));
-
-    const currentMonthName = new Date().toLocaleString("default", { month: "short" });
-
     return {
       revenueAtRisk,
       aiRecovered,
       recoveryRate,
-      incrementalRevenue,
       activeOpportunitiesCount: opps.length,
-      pendingActionCount: pendingCount,
-      totalTransactions: opps.length + outcomes.length,
-      monthlyTrend: [
-        { month: "Sep", atRisk: 18000, recovered: 9200 },
-        { month: "Oct", atRisk: 22400, recovered: 10800 },
-        { month: "Nov", atRisk: 26100, recovered: 12400 },
-        { month: currentMonthName, atRisk: revenueAtRisk, recovered: aiRecovered }
-      ],
-      paymentMethodBreakdown
+      pendingActionCount: pendingCount
     };
   }
 
@@ -823,6 +781,19 @@ class DataStore {
     this.metricsListeners.add(cb);
     cb(this.getOverviewMetrics());
     return () => this.metricsListeners.delete(cb);
+  }
+
+  public subscribeOrders(cb: ListenerCallback<Order[]>): () => void {
+    this.orderListeners.add(cb);
+    cb(this.getOrders());
+    return () => this.orderListeners.delete(cb);
+  }
+
+  private notifyOrders() {
+    const list = this.getOrders();
+    this.orderListeners.forEach(cb => {
+      try { cb(list); } catch (e) { console.error("Error in order listener:", e); }
+    });
   }
 
   private notifyOpportunities() {

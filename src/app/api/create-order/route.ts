@@ -108,7 +108,8 @@ export async function POST(req: NextRequest) {
       keyId: key_id,
       receipt: orderId,
       customerName: newOrder.customerName,
-      customerEmail: newOrder.customerEmail
+      customerEmail: newOrder.customerEmail,
+      order: newOrder
     });
   } catch (error: any) {
     console.error("Error in create-order route:", error);

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/razorpay/client";
 import { dbService } from "@/lib/firebase/db";
 import { RecoveryOrchestrator } from "@/lib/recovery/orchestrator";
-import { BankHealthService } from "@/lib/telemetry/bankHealth";
-import { ErrorNormalizer } from "@/lib/telemetry/errorNormalizer";
 import { Payment } from "@/lib/types";
 
 // Idempotency tracking set for processed webhook IDs in instance runtime
@@ -63,25 +61,10 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // Granular Error Normalization across gateways & switches
-      const normalizedError = ErrorNormalizer.normalizeRazorpay({
-        code: paymentEntity?.error_code,
-        description: paymentEntity?.error_description,
-        source: paymentEntity?.error_source,
-        step: paymentEntity?.error_step,
-        reason: paymentEntity?.error_reason,
-        bank: bankCode,
-        paymentMethod: method
-      });
+      // Extract failure details directly from Razorpay payload
+      const failureCode = paymentEntity?.error_code || paymentEntity?.error_reason || "PAYMENT_FAILED";
+      const failureReason = paymentEntity?.error_description || "Payment failed";
 
-      // Update Live Telemetry in BankHealthService
-      BankHealthService.recordMetric({
-        rail: method === "upi" ? "UPI" : method === "netbanking" ? "NETBANKING" : "CARD",
-        bankCode: bankCode || "RZP_ORCH",
-        latencyMs: 1200,
-        success: false,
-        errorCode: normalizedError.rawCode
-      });
 
       let order = null;
       if (razorpayOrderId) {
@@ -99,8 +82,8 @@ export async function POST(req: NextRequest) {
         currency,
         paymentMethod: method,
         status: "failed",
-        failureCode: normalizedError.rawCode,
-        failureReason: normalizedError.rootCause,
+        failureCode: failureCode,
+        failureReason: failureReason,
         attemptNumber: 1,
         razorpayPaymentId,
         razorpayOrderId,
@@ -120,8 +103,8 @@ export async function POST(req: NextRequest) {
         order,
         customer,
         sourceType: "razorpay_failure",
-        failureCode: normalizedError.rawCode,
-        failureReason: normalizedError.rootCause
+        failureCode: failureCode,
+        failureReason: failureReason
       });
 
       return NextResponse.json({
@@ -136,13 +119,6 @@ export async function POST(req: NextRequest) {
 
     // Handle Payment Captured / Success Event
     if (event === "payment.captured" || event === "order.paid") {
-      // Record Positive Telemetry
-      BankHealthService.recordMetric({
-        rail: method === "upi" ? "UPI" : method === "netbanking" ? "NETBANKING" : "CARD",
-        bankCode: bankCode || "RZP_ORCH",
-        latencyMs: 380,
-        success: true
-      });
 
       if (razorpayOrderId) {
         await dbService.updateOrder(razorpayOrderId, { status: "paid" });

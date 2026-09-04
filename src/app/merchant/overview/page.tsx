@@ -1,418 +1,374 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import MerchantNav from "@/components/merchant/MerchantNav";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
-import BankHealthRadar from "@/components/merchant/BankHealthRadar";
-import ReviveCopilotModal from "@/components/merchant/ReviveCopilotModal";
 import { dbService } from "@/lib/firebase/db";
-import { RecoveryOpportunity, OverviewMetrics } from "@/lib/types";
+import { RecoveryOpportunity, OverviewMetrics, Order } from "@/lib/types";
 import {
-  ArrowLeft,
-  PlusCircle,
+  ArrowRight,
   ArrowUpRight,
-  Search,
-  ChevronDown,
-  CreditCard,
-  QrCode,
+  RefreshCw,
+  Truck,
   CheckCircle2,
-  AlertTriangle,
-  Clock,
-  ArrowRight
+  AlertCircle,
+  RotateCcw,
+  Package,
+  ShoppingBag,
+  ExternalLink
 } from "lucide-react";
 
 export default function MerchantOverviewPage() {
   const router = useRouter();
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
   const [opportunities, setOpportunities] = useState<RecoveryOpportunity[]>([]);
-  const [selectedOpp, setSelectedOpp] = useState<RecoveryOpportunity | null>(null);
-  const [filterTab, setFilterTab] = useState<"all" | "pending" | "action_required">("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [activeTab, setActiveTab] = useState<"cases" | "orders">("cases");
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
-    // Realtime subscriptions
     const unsubMetrics = dbService.subscribeMetrics((data) => {
       setMetrics(data);
     });
 
     const unsubOpps = dbService.subscribeOpportunities((data) => {
       setOpportunities(data);
-      if (data.length > 0) {
-        setSelectedOpp((prev) => {
-          if (!prev) return data[0];
-          const found = data.find((d) => d.opportunityId === prev.opportunityId);
-          return found || data[0];
-        });
-      }
+    });
+
+    const unsubOrders = dbService.subscribeOrders((data) => {
+      setOrders(data);
     });
 
     return () => {
       unsubMetrics();
       unsubOpps();
+      unsubOrders();
     };
   }, []);
 
-  const filteredOpps = opportunities.filter((opp) => {
-    if (filterTab === "pending" && opp.status === "recovered") return false;
-    if (filterTab === "action_required" && opp.status !== "recovery_recommended") return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        opp.opportunityId.toLowerCase().includes(q) ||
-        opp.failureType.toLowerCase().includes(q) ||
-        (opp.customerName && opp.customerName.toLowerCase().includes(q))
-      );
+  const handleResetDemoSeed = async () => {
+    setResetting(true);
+    try {
+      await fetch("/api/seed", { method: "POST" });
+      const res = await fetch("/api/seed", { method: "GET" });
+      const data = await res.json();
+      if (data.metrics) setMetrics(data.metrics);
+      const ordersRes = await fetch("/api/orders");
+      const ordersData = await ordersRes.json();
+      if (ordersData.orders) setOrders(ordersData.orders);
+    } catch (e) {
+      console.error("Reset error:", e);
+    } finally {
+      setResetting(false);
     }
-    return true;
-  });
+  };
 
-  const activeFocus = selectedOpp || opportunities[0];
+  const returnOpps = opportunities.filter((o) => o.sourceType === "return");
+  const ndrOpps = opportunities.filter((o) => o.sourceType === "ndr");
+  const recoveredOpps = opportunities.filter((o) => o.status === "recovered");
+  const pendingOpps = opportunities.filter((o) => o.status !== "recovered");
 
   return (
     <div className="bg-[#EFF4F8] text-[#191c1e] font-sans min-h-screen w-full flex flex-col selection:bg-[#D4FF00] selection:text-black">
       <MerchantNav />
 
-      {/* Main Content */}
-      <main className="flex-1 px-6 md:px-12 xl:px-16 pb-12 flex flex-col z-0 relative w-full">
+      <main className="flex-1 px-4 md:px-10 lg:px-12 py-8 flex flex-col w-full max-w-[1600px] mx-auto">
         {/* Page Header */}
-        <header className="flex items-center justify-between mb-8 mt-2">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/welcome")}
-              className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center bg-white text-gray-700 hover:bg-gray-50 shadow-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <h1 className="text-4xl md:text-5xl font-medium tracking-tight text-gray-900 leading-none">
-              Overview
-            </h1>
-          </div>
-
-          <button
-            onClick={() => router.push("/merchant/audit")}
-            className="bg-white border border-gray-300 rounded-full px-5 py-2.5 text-xs font-bold text-gray-800 flex items-center gap-2 hover:bg-gray-50 shadow-sm transition-all"
-          >
-            <PlusCircle className="w-4 h-4 text-[#5e3bdb]" />
-            <span>Review Guardrails</span>
-          </button>
-        </header>
-
-        {/* Metric Cards Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-          {/* Large Stats Block */}
-          <div className="lg:col-span-8 bg-[#F4F5F7] rounded-3xl p-8 flex flex-col justify-between border border-white/70 shadow-sm">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-              <div>
-                <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">Revenue at Risk</p>
-                <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
-                  <span className="text-xl text-gray-400 mr-1">₹</span>
-                  {(metrics?.revenueAtRisk ?? 0).toLocaleString()}.00
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">AI Recovered</p>
-                <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
-                  <span className="text-xl text-[#5e3bdb] mr-1">₹</span>
-                  {(metrics?.aiRecovered ?? 0).toLocaleString()}.00
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">Recovery Rate</p>
-                <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
-                  {metrics?.recoveryRate ?? 0}
-                  <span className="text-2xl text-gray-400 ml-1">%</span>
-                </p>
-              </div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-3xl md:text-4xl font-black tracking-tight text-gray-900">
+                Merchant Overview
+              </h1>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#D4FF00] animate-pulse" />
             </div>
-
-            {/* Monthly Striped Timeline Bar */}
-            <div className="mt-8">
-              <div className="flex justify-between text-xs text-gray-500 mb-2 font-bold">
-                {(metrics?.monthlyTrend || [
-                  { month: "Sep", recovered: 9200 },
-                  { month: "Oct", recovered: 10800 },
-                  { month: "Nov", recovered: 12400 },
-                  { month: "Dec", recovered: metrics?.aiRecovered || 0 }
-                ]).map((m, idx) => (
-                  <span key={idx}>
-                    {m.month} (₹{(m.recovered / 1000).toFixed(1)}k{idx === 3 ? " Live" : ""})
-                  </span>
-                ))}
-              </div>
-              <div className="w-full h-3.5 bg-gray-200 rounded-full overflow-hidden flex shadow-inner">
-                <div className="h-full bg-[#D4FF00] w-1/4 rounded-full border-r-2 border-white"></div>
-                <div className="h-full progress-bar-striped w-1/4 rounded-full border-r-2 border-white"></div>
-                <div className="h-full bg-gray-300 w-1/4 border-r-2 border-white"></div>
-                <div className="h-full bg-[#D4FF00] w-1/4 rounded-full animate-pulse"></div>
-              </div>
-            </div>
+            <p className="text-xs md:text-sm text-gray-500 mt-1">
+              Autonomous revenue recovery across customer Returns and Failed COD (NDR) • Live Store Orders
+            </p>
           </div>
 
-          {/* Secondary Stats Block */}
-          <div className="lg:col-span-4 bg-[#F4F5F7] rounded-3xl p-8 relative flex flex-col justify-between border border-white/70 shadow-sm">
-            <Link
-              href="/merchant/analytics"
-              className="absolute top-6 right-6 w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center bg-white text-gray-700 hover:bg-gray-50 shadow-sm"
-            >
-              <ArrowUpRight className="w-4 h-4" />
-            </Link>
-            <div>
-              <p className="text-gray-500 text-xs font-semibold mb-1 uppercase tracking-wider">Incremental Revenue</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-3xl md:text-4xl font-medium tracking-tight text-gray-900">
-                  <span className="text-xl text-[#5e3bdb] mr-1">+₹</span>
-                  {(metrics?.incrementalRevenue ?? 0).toLocaleString()}.00
-                </p>
-                <span className="px-2.5 py-0.5 bg-white rounded-full text-[10px] font-bold border border-gray-200">
-                  Modeled
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-6 flex items-center gap-2">
-              <div className="bg-gray-200/70 rounded-xl p-3.5 flex-1">
-                <p className="text-[11px] text-gray-500 mb-1 font-mono">#Razorpay</p>
-                <p className="text-xs font-bold text-gray-900">Card Retry</p>
-              </div>
-              <div className="bg-[#D4FF00] rounded-xl p-3.5 flex-1 shadow-sm">
-                <p className="text-[11px] text-[#2a2a2a]/70 mb-1 font-mono font-bold">#UPI-Engine</p>
-                <p className="text-xs font-extrabold text-[#2a2a2a]">
-                  {metrics?.recoveryRate ? `${metrics.recoveryRate}% Live Rate` : "84% Top Rate"}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Filters Bar */}
-        <div className="flex flex-wrap items-center gap-4 mb-6">
-          <div className="flex items-center gap-2 font-bold text-xs">
-            <span>Active filters</span>
-            <span className="w-5 h-5 rounded-full bg-[#2a2a2a] text-white text-[10px] flex items-center justify-center">
-              2
-            </span>
-          </div>
-
-          <div className="flex gap-2">
-            <span className="bg-white px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-700 flex items-center gap-1.5 border border-gray-200 shadow-sm">
-              E-Commerce Shoes <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-            </span>
-            <span className="bg-white px-3.5 py-1.5 rounded-full text-xs font-semibold text-gray-700 flex items-center gap-1.5 border border-gray-200 shadow-sm">
-              All Gateways <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
-            </span>
-          </div>
-
-          <div className="ml-auto bg-white rounded-full border border-gray-200 flex items-center px-4 py-2 w-full sm:w-64 shadow-sm">
-            <input
-              className="bg-transparent border-none outline-none text-xs w-full placeholder-gray-400 focus:ring-0 p-0 text-gray-800 font-medium"
-              placeholder="Enter recovery ID #..."
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <Search className="w-4 h-4 text-gray-400" />
-          </div>
-        </div>
-
-        {/* Main Dark Recovery Section */}
-        <div className="bg-[#2a2a2a] rounded-[2.5rem] flex-1 p-6 md:p-10 flex flex-col relative text-white shadow-2xl border border-white/10 w-full">
-          {/* Section Tabs Pill */}
-          <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-white rounded-full p-1 flex items-center shadow-lg border border-gray-200 z-20">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setFilterTab("all")}
-              className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all ${
-                filterTab === "all" ? "bg-[#2a2a2a] text-white" : "text-gray-600 hover:text-black"
-              }`}
+              onClick={handleResetDemoSeed}
+              disabled={resetting}
+              className="px-4 py-2 rounded-full bg-white hover:bg-gray-50 border border-gray-300 text-xs font-bold text-gray-700 flex items-center gap-2 transition-all shadow-sm disabled:opacity-50"
+              title="Reset to 2 clean demo cases"
             >
-              All ({opportunities.length})
+              <RotateCcw className={`w-3.5 h-3.5 ${resetting ? "animate-spin" : ""}`} />
+              <span>{resetting ? "Resetting..." : "Reset Demo Data"}</span>
             </button>
-            <button
-              onClick={() => setFilterTab("pending")}
-              className={`px-5 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-1.5 ${
-                filterTab === "pending" ? "bg-[#2a2a2a] text-white" : "text-gray-600 hover:text-black"
-              }`}
-            >
-              <span>Pending</span>
-              <span className="bg-gray-100 px-1.5 py-0.5 rounded-full text-[10px] text-gray-700">
-                {opportunities.filter((o) => o.status !== "recovered").length}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilterTab("action_required")}
-              className={`px-5 py-1.5 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all ${
-                filterTab === "action_required" ? "bg-[#D4FF00] text-[#1c1b1b] shadow-sm" : "text-gray-600 hover:text-black"
-              }`}
-            >
-              <span>Action Required</span>
-              <span className="bg-[#2a2a2a] text-[#D4FF00] px-1.5 py-0.5 rounded-full text-[10px]">
-                {opportunities.filter((o) => o.status === "recovery_recommended").length}
-              </span>
-            </button>
-          </div>
 
-          {/* Queue Header */}
-          <div className="flex justify-between items-center mb-6 mt-4">
-            <h2 className="text-white font-bold text-lg flex items-center gap-2">
-              <span>Recovery Queue</span>
-              <span className="w-2 h-2 rounded-full bg-[#D4FF00] animate-pulse"></span>
-            </h2>
             <Link
               href="/merchant/recovery"
-              className="text-xs text-[#D4FF00] hover:underline font-bold flex items-center gap-1"
+              className="px-5 py-2.5 rounded-full bg-[#2a2a2a] text-[#D4FF00] hover:bg-black text-xs font-extrabold flex items-center gap-2 transition-all shadow-md"
             >
-              <span>Open Detailed Recovery Studio</span>
+              <span>Open Recovery Queue</span>
+              <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Hero KPI Cards Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          {/* Card 1: Revenue at Risk */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] text-gray-500 uppercase font-bold tracking-wider block mb-1">
+                Revenue at Risk
+              </span>
+              <p className="text-3xl font-black tracking-tight text-gray-900 font-mono">
+                ₹{(metrics?.revenueAtRisk ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+              <span>{pendingOpps.length} cases awaiting resolution</span>
+            </p>
+          </div>
+
+          {/* Card 2: AI Revenue Retained */}
+          <div className="bg-[#2a2a2a] text-white rounded-3xl p-6 border border-white/10 shadow-xl flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-28 h-28 bg-[#D4FF00]/10 rounded-full blur-2xl pointer-events-none" />
+            <div>
+              <span className="text-[11px] text-[#D4FF00] uppercase font-extrabold tracking-wider block mb-1">
+                AI Revenue Retained
+              </span>
+              <p className="text-3xl font-black tracking-tight text-[#D4FF00] font-mono">
+                ₹{(metrics?.aiRecovered ?? 0).toLocaleString()}
+              </p>
+            </div>
+            <p className="text-xs text-white/70 mt-3 flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#D4FF00]" />
+              <span>{recoveredOpps.length} sales retained (100%)</span>
+            </p>
+          </div>
+
+          {/* Card 3: Active Cases */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] text-gray-500 uppercase font-bold tracking-wider block mb-1">
+                Active Cases
+              </span>
+              <p className="text-3xl font-black tracking-tight text-gray-900 font-mono">
+                {opportunities.length}
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+              <span>{pendingOpps.length} pending • {recoveredOpps.length} recovered</span>
+            </p>
+          </div>
+
+          {/* Card 4: Store Orders */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-sm flex flex-col justify-between">
+            <div>
+              <span className="text-[11px] text-gray-500 uppercase font-bold tracking-wider block mb-1">
+                Store Orders
+              </span>
+              <p className="text-3xl font-black tracking-tight text-gray-900 font-mono">
+                {orders.length}
+              </p>
+            </div>
+            <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5">
+              <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+              <span>{orders.filter(o => o.status === "paid" || o.status === "recovered").length} completed • {orders.filter(o => o.status === "return_requested").length} returns</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Tabbed Section: Recovery Cases vs Store Orders */}
+        <div className="bg-white rounded-3xl p-6 md:p-8 border border-gray-200/80 shadow-sm">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab("cases")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                  activeTab === "cases"
+                    ? "bg-[#2a2a2a] text-[#D4FF00] shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Recovery Cases ({opportunities.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("orders")}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                  activeTab === "orders"
+                    ? "bg-[#2a2a2a] text-[#D4FF00] shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Store Orders ({orders.length})
+              </button>
+            </div>
+
+            <Link
+              href="/merchant/recovery"
+              className="text-xs font-bold text-[#b32a03] hover:underline flex items-center gap-1"
+            >
+              <span>Manage Full Recovery Queue</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
-          {/* 2-Column Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start w-full">
-            {/* Left Queue List (5 Cols) */}
-            <div className="lg:col-span-5 flex flex-col gap-2.5 max-h-[520px] overflow-y-auto pr-1">
-              {filteredOpps.length === 0 ? (
-                <div className="p-8 text-center text-white/50 text-xs">No recovery opportunities match the current filter.</div>
+          {activeTab === "cases" ? (
+            /* Tab 1: Recovery Cases */
+            <div className="divide-y divide-gray-100">
+              {opportunities.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-500">No active recovery cases.</div>
               ) : (
-                filteredOpps.map((opp) => {
-                const isSelected = activeFocus?.opportunityId === opp.opportunityId;
-                return (
+                opportunities.map((opp) => (
                   <div
                     key={opp.opportunityId}
-                    onClick={() => setSelectedOpp(opp)}
-                    className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border ${
-                      isSelected
-                        ? "bg-[#7A90A2]/25 border-[#7A90A2]/60 shadow-lg text-white"
-                        : "bg-white/5 border-transparent hover:bg-white/10 text-white/70"
-                    }`}
+                    onClick={() => router.push(`/merchant/recovery?id=${opp.opportunityId}`)}
+                    className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/80 px-3 rounded-2xl cursor-pointer transition-colors"
                   >
-                    <div className="flex items-center gap-3.5">
+                    <div className="flex items-center gap-3">
                       <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                          opp.status === "recovered"
-                            ? "bg-[#D4FF00] text-black"
-                            : isSelected
-                            ? "bg-[#D4FF00] text-black"
-                            : "bg-white/10 text-white"
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ${
+                          opp.sourceType === "return"
+                            ? "bg-purple-100 text-purple-900"
+                            : "bg-blue-100 text-blue-900"
                         }`}
                       >
-                        {opp.paymentMethod === "upi" ? (
-                          <QrCode className="w-4 h-4" />
-                        ) : (
-                          <CreditCard className="w-4 h-4" />
-                        )}
+                        {opp.sourceType === "return" ? <RefreshCw className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">{opp.opportunityId}</p>
-                        <p className="text-xs text-white/50">{opp.failureType}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-xs text-gray-900">{opp.opportunityId}</span>
+                          <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-700">
+                            {opp.sourceType}
+                          </span>
+                          <span className="text-[10px] text-gray-400 font-mono">({opp.orderId})</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{opp.customerName} • {opp.productName}</span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                          opp.status === "recovered"
-                            ? "bg-green-500/20 text-green-300 border border-green-500/30"
-                            : opp.status === "recovery_recommended"
-                            ? "bg-[#D4FF00]/20 text-[#D4FF00] border border-[#D4FF00]/40"
-                            : "bg-white/10 text-white/70"
-                        }`}
-                      >
-                        {opp.status.replace("_", " ")}
-                      </span>
-                      <span className="text-sm font-bold text-white font-mono">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-sm text-gray-900">
                         ₹{opp.amount.toLocaleString()}
                       </span>
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          opp.status === "recovered"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-[#D4FF00]/50 text-gray-900"
+                        }`}
+                      >
+                        {opp.status === "recovered" ? "Retained" : "Action Ready"}
+                      </span>
+                      {opp.status !== "recovered" && (
+                        <Link
+                          href={`/merchant/recovery?id=${opp.opportunityId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-3 py-1.5 bg-[#2a2a2a] text-[#D4FF00] hover:bg-black font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all shadow-sm"
+                        >
+                          <span>Take Action</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      )}
                     </div>
                   </div>
-                );
-              }))}
+                ))
+              )}
             </div>
+          ) : (
+            /* Tab 2: Store Orders (All Orders) */
+            <div className="divide-y divide-gray-100">
+              {orders.length === 0 ? (
+                <div className="py-8 text-center text-xs text-gray-500">No orders placed yet. Place an order in the customer storefront to see it appear here!</div>
+              ) : (
+                orders.map((order) => {
+                  const firstItem = order.items && order.items[0];
+                  const hasOpp = opportunities.find((o) => o.orderId === order.orderId);
 
-            {/* Right Focused AI Recommendation Card (7 Cols) */}
-            <div className="lg:col-span-7 bg-[#7A90A2]/20 border border-[#7A90A2]/40 rounded-3xl p-6 md:p-8 flex flex-col justify-between min-h-[420px] shadow-xl">
-              {activeFocus ? (
-                <>
-                  <div>
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <span className="text-xs font-mono text-[#D4FF00] font-bold uppercase tracking-wider block mb-1">
-                          Active AI Recommendation
-                        </span>
-                        <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                          <span>{activeFocus.recommendedAction || "Alternate UPI Recovery"}</span>
-                        </h3>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xs text-white/60 block">Est. Recovery Value</span>
-                        <span className="text-2xl font-black text-[#D4FF00]">
-                          ₹{(activeFocus.expectedRecovery || Math.round(activeFocus.amount * 0.82)).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
+                  return (
+                    <div
+                      key={order.orderId}
+                      className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/80 px-3 rounded-2xl transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {firstItem?.imageUrl ? (
+                          <div className="w-10 h-10 rounded-xl bg-[#fee2dc]/40 border border-[#e3beb6]/40 p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                            <img src={firstItem.imageUrl} alt={firstItem.name} className="w-full h-full object-contain mix-blend-multiply" />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-[#fee2dc]/40 flex items-center justify-center">
+                            <Package className="w-5 h-5 text-[#b32a03]" />
+                          </div>
+                        )}
 
-                    {/* Probability & Key Signal */}
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      <div className="bg-white/10 rounded-2xl p-4 border border-white/10">
-                        <span className="text-[11px] text-white/60 uppercase block mb-1">Recovery Probability</span>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-extrabold text-white">
-                            {Math.round((activeFocus.recoveryProbability || 0.82) * 100)}%
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-xs text-gray-900">{order.orderId}</span>
+                            <span className="text-xs font-bold text-gray-800">{order.customerName}</span>
+                            <span className="text-[10px] text-gray-400 font-mono">{new Date(order.createdAt).toLocaleDateString()}</span>
+                          </div>
+                          <span className="text-xs text-gray-500">
+                            {firstItem?.name || "Shoe"} {firstItem?.size ? `(Size ${firstItem.size})` : ""}
                           </span>
-                          <span className="text-xs text-[#D4FF00] font-semibold">High Confidence</span>
                         </div>
                       </div>
 
-                      <div className="bg-white/10 rounded-2xl p-4 border border-white/10">
-                        <span className="text-[11px] text-white/60 uppercase block mb-1">Target Customer</span>
-                        <span className="text-sm font-bold text-white block truncate">
-                          {activeFocus.customerName || "Sarah Jenkins"}
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono font-bold text-sm text-gray-900">
+                          ₹{order.total.toLocaleString()}
                         </span>
-                        <span className="text-[11px] text-white/60 font-mono">
-                          {activeFocus.customerId || "CUS-8F42K1"}
+
+                        {/* Status Badge */}
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                            order.status === "paid"
+                              ? "bg-green-100 text-green-800"
+                              : order.status === "return_requested"
+                              ? "bg-amber-100 text-amber-800"
+                              : order.status === "recovered"
+                              ? "bg-[#D4FF00]/40 text-black"
+                              : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {order.status === "paid"
+                            ? "Paid • Delivered"
+                            : order.status === "return_requested"
+                            ? "Return Requested"
+                            : order.status === "recovered"
+                            ? "Exchanged"
+                            : "COD Pending"}
                         </span>
+
+                        {/* Action button */}
+                        {hasOpp ? (
+                          <Link
+                            href={`/merchant/recovery?id=${hasOpp.opportunityId}`}
+                            className="px-3 py-1.5 bg-[#D4FF00] hover:bg-[#c5e128] text-black font-extrabold rounded-lg text-[11px] flex items-center gap-1 transition-all shadow-sm"
+                          >
+                            <span>Review Recovery Case</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/store/orders/${order.orderId}`}
+                            target="_blank"
+                            className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all"
+                          >
+                            <span>Customer View</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </Link>
+                        )}
                       </div>
                     </div>
-
-                    {/* Explanation Quote */}
-                    <div className="bg-black/30 p-4 rounded-2xl border border-white/10">
-                      <p className="text-xs text-white/90 italic leading-relaxed">
-                        "{activeFocus.recommendationReason || "Customer historically completes 4 of 5 transactions through UPI with zero friction."}"
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Action Link */}
-                  <div className="pt-6 border-t border-white/10 flex items-center justify-between">
-                    <div className="text-xs text-white/60">
-                      Status: <span className="text-white font-bold uppercase">{activeFocus.status.replace("_", " ")}</span>
-                    </div>
-                    <button
-                      onClick={() => router.push(`/merchant/recovery?id=${activeFocus.opportunityId}`)}
-                      className="bg-[#D4FF00] text-[#1c1b1b] font-bold px-6 py-3 rounded-full text-xs hover:bg-[#c5e128] transition-all flex items-center gap-2 shadow-lg"
-                    >
-                      <span>Open Decision Detail</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full text-white/50 text-sm">
-                  No active opportunities in queue
-                </div>
+                  );
+                })
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Bank & PSP Health Telemetry Radar */}
-        <div className="mt-8">
-          <BankHealthRadar />
+          )}
         </div>
       </main>
 
       <DemoSimulatorModal />
-      <ReviveCopilotModal />
     </div>
   );
 }

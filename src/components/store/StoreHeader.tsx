@@ -82,6 +82,10 @@ export default function StoreHeader({ cartCount = 0 }: { cartCount?: number }) {
             Merchant View
           </Link>
 
+          <Link href="/store/orders" className="p-2 rounded-full hover:bg-[#fee2dc] hover:text-[#b32a03] transition-colors text-xs font-bold" title="My Orders">
+            Orders
+          </Link>
+
           <Link href="/store/checkout" className="p-2 rounded-full hover:bg-[#fee2dc] hover:text-[#b32a03] transition-colors relative">
             <ShoppingBag className="w-5 h-5" />
             {cartCount > 0 && (

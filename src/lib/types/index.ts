@@ -1,4 +1,4 @@
-export type PaymentMethod = 'card' | 'upi' | 'netbanking' | 'wallet';
+export type PaymentMethod = 'card' | 'upi' | 'netbanking' | 'wallet' | 'cod';
 
 export type PaymentStatus = 'pending' | 'captured' | 'failed' | 'refunded';
 
@@ -17,6 +17,10 @@ export type OpportunityStatus =
   | 'expired';
 
 export type RecoveryStrategyType =
+  | 'size_exchange'
+  | 'cod_to_prepaid'
+  | 'store_credit'
+  | 'full_refund'
   | 'retry_now'
   | 'delayed_retry'
   | 'alternate_payment'
@@ -105,7 +109,7 @@ export interface Order {
   shipping: number;
   tax: number;
   total: number;
-  status: 'pending' | 'paid' | 'failed' | 'recovered' | 'cancelled';
+  status: 'pending' | 'paid' | 'failed' | 'recovered' | 'cancelled' | 'return_requested';
   razorpayOrderId?: string;
   shippingAddress?: {
     firstName: string;
@@ -166,29 +170,6 @@ export interface IncentiveOffer {
   reasoning: string;
 }
 
-export interface BankHealthNode {
-  bankName: string;
-  code: string;
-  rail: 'UPI' | 'CARD' | 'NETBANKING';
-  successRate: number; // 0-100
-  latencyMs: number;
-  status: 'optimal' | 'degraded' | 'maintenance';
-  recommendedAlternative?: string;
-  lastUpdated: string;
-}
-
-export interface DispatchedMessage {
-  dispatchId: string;
-  opportunityId: string;
-  channel: 'whatsapp' | 'sms' | 'email';
-  recipientName: string;
-  recipientContact: string;
-  messageContent: string;
-  incentiveAttached?: IncentiveOffer;
-  status: 'delivered' | 'read' | 'clicked' | 'converted';
-  paymentLink: string;
-  dispatchedAt: string;
-}
 
 export interface RecoveryPredictionResult {
   recoveryProbability: number; // e.g. 0.84
@@ -229,7 +210,7 @@ export interface RecoveryOpportunity {
   customerEmail?: string;
   amount: number;
   currency: string;
-  sourceType: 'razorpay_failure' | 'checkout_abandonment' | 'subscription_failure';
+  sourceType: 'return' | 'ndr' | 'razorpay_failure' | 'checkout_abandonment' | 'subscription_failure';
   paymentMethod: PaymentMethod;
   failureType: string;
   attemptCount: number;
@@ -245,6 +226,18 @@ export interface RecoveryOpportunity {
   customerRecoveryUrl?: string;
   createdAt: string;
   updatedAt: string;
+  // Return Case Specific Domain Fields
+  productName?: string;
+  productId?: string;
+  returnReason?: string;
+  currentSize?: string;
+  replacementSize?: string;
+  replacementInStock?: boolean;
+  // NDR Case Specific Domain Fields
+  ndrReason?: string;
+  codAmount?: number;
+  deliveryAttempts?: number;
+  deliveryStatus?: string;
 }
 
 export interface RecoveryAction {
@@ -279,7 +272,7 @@ export interface AuditLog {
   paymentId?: string;
   orderId?: string;
   actorType: 'SYSTEM' | 'AI_AGENT' | 'GUARDRAIL_ENGINE' | 'MERCHANT' | 'CUSTOMER';
-  agentName?: 'FailureAnalyst' | 'RecoveryPredictor' | 'StrategyAgent' | 'RecoveryExplainer' | 'RecoveryOrchestrator';
+  agentName?: 'FailureAnalyst' | 'RecoveryPredictor' | 'StrategyAgent' | 'RecoveryExplainer' | 'RecoveryOrchestrator' | 'RevenueAgent';
   eventType:
     | 'PAYMENT_SUCCEEDED'
     | 'PAYMENT_FAILED'
@@ -293,7 +286,12 @@ export interface AuditLog {
     | 'RECOVERY_ABORTED'
     | 'MANUAL_APPROVAL_GRANTED'
     | 'INCENTIVE_ATTACHED'
-    | 'MESSAGE_DISPATCHED';
+    | 'MESSAGE_DISPATCHED'
+    | 'RETURN_FILED'
+    | 'EXCHANGE_CONFIRMED'
+    | 'NDR_FILED'
+    | 'COD_CONVERTED_PREPAID'
+    | 'REVENUE_RETAINED';
   message: string;
   metadata?: Record<string, any>;
   createdAt: string;
@@ -314,18 +312,6 @@ export interface OverviewMetrics {
   revenueAtRisk: number;
   aiRecovered: number;
   recoveryRate: number;
-  incrementalRevenue: number;
   activeOpportunitiesCount: number;
   pendingActionCount: number;
-  totalTransactions: number;
-  monthlyTrend: {
-    month: string;
-    atRisk: number;
-    recovered: number;
-  }[];
-  paymentMethodBreakdown: {
-    method: string;
-    recovered: number;
-    count: number;
-  }[];
 }

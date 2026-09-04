@@ -11,8 +11,7 @@ import {
   RecoveryOutcome,
   AuditLog,
   MerchantPolicy,
-  OverviewMetrics,
-  DispatchedMessage
+  OverviewMetrics
 } from "@/lib/types";
 
 // Unified Data Access Layer (Local Store + Live Cloud Firestore)
@@ -61,6 +60,10 @@ export const dbService = {
   },
 
   // Orders
+  getOrders: async (): Promise<Order[]> => {
+    return store.getOrders();
+  },
+
   createOrder: async (order: Order): Promise<Order> => {
     const res = store.createOrder(order);
     firestoreSync.saveOrder(order).catch(() => {});
@@ -314,21 +317,7 @@ export const dbService = {
     return store.subscribeMetrics(cb);
   },
 
-  // Multi-Channel Dispatch
-  dispatchMessage: async (msg: DispatchedMessage): Promise<DispatchedMessage> => {
-    const saved = store.addDispatchedMessage(msg);
-    await dbService.addAuditLog({
-      opportunityId: msg.opportunityId,
-      actorType: "AI_AGENT",
-      agentName: "RecoveryOrchestrator",
-      eventType: "MESSAGE_DISPATCHED",
-      message: `1-Click Recovery link dispatched via ${msg.channel.toUpperCase()} to ${msg.recipientName} (${msg.recipientContact})`,
-      metadata: { channel: msg.channel, dispatchId: msg.dispatchId, incentive: msg.incentiveAttached }
-    });
-    return saved;
-  },
-
-  getDispatchedMessages: async (oppId?: string): Promise<DispatchedMessage[]> => {
-    return store.getDispatchedMessages(oppId);
+  subscribeOrders: (cb: (data: Order[]) => void) => {
+    return store.subscribeOrders(cb);
   }
 };

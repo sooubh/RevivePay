@@ -14,9 +14,7 @@ export default function MerchantNav() {
 
   const navItems = [
     { name: "Overview", href: "/merchant/overview" },
-    { name: "Recovery", href: "/merchant/recovery" },
-    { name: "Analytics", href: "/merchant/analytics" },
-    { name: "Audit", href: "/merchant/audit" }
+    { name: "Recovery Queue", href: "/merchant/recovery" }
   ];
 
   useEffect(() => {
@@ -27,7 +25,11 @@ export default function MerchantNav() {
       }
       if (logs.length > 0) {
         const latest = logs[0];
-        if (latest.eventType === "PAYMENT_RECOVERED" || latest.eventType === "PAYMENT_FAILED" || latest.eventType === "RECOVERY_ACTION_TRIGGERED") {
+        if (
+          latest.eventType === "EXCHANGE_CONFIRMED" ||
+          latest.eventType === "COD_CONVERTED_PREPAID" ||
+          latest.eventType === "PAYMENT_RECOVERED"
+        ) {
           setActiveNotification(latest);
           const t = setTimeout(() => setActiveNotification(null), 5000);
           return () => clearTimeout(t);
@@ -107,12 +109,16 @@ export default function MerchantNav() {
         <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-[#2a2a2a] text-white p-4 rounded-2xl shadow-2xl border border-white/20 flex items-start gap-3 animate-fade-in">
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-              activeNotification.eventType === "PAYMENT_RECOVERED"
+              activeNotification.eventType === "PAYMENT_RECOVERED" ||
+              activeNotification.eventType === "EXCHANGE_CONFIRMED" ||
+              activeNotification.eventType === "COD_CONVERTED_PREPAID"
                 ? "bg-[#D4FF00] text-black"
                 : "bg-red-500/20 text-red-400"
             }`}
           >
-            {activeNotification.eventType === "PAYMENT_RECOVERED" ? (
+            {activeNotification.eventType === "PAYMENT_RECOVERED" ||
+            activeNotification.eventType === "EXCHANGE_CONFIRMED" ||
+            activeNotification.eventType === "COD_CONVERTED_PREPAID" ? (
               <CheckCircle2 className="w-4 h-4" />
             ) : (
               <AlertCircle className="w-4 h-4" />
@@ -121,7 +127,7 @@ export default function MerchantNav() {
           <div className="flex-1">
             <div className="flex justify-between items-center mb-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#D4FF00]">
-                {activeNotification.eventType.replace("_", " ")}
+                {activeNotification.eventType.replace(/_/g, " ")}
               </span>
               <button
                 onClick={() => setActiveNotification(null)}

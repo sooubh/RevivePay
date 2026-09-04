@@ -6,17 +6,14 @@ import { Zap, RefreshCw, CheckCircle, AlertTriangle, Play, X, ShieldAlert } from
 export default function DemoSimulatorModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [scenario, setScenario] = useState<string>("upi_failure");
+  const [scenario, setScenario] = useState<string>("return_size_issue");
   const [amount, setAmount] = useState<number>(4999);
   const [lastResult, setLastResult] = useState<any>(null);
 
   const handleScenarioChange = (sc: string) => {
     setScenario(sc);
-    if (sc === "upi_failure") setAmount(4999);
-    else if (sc === "card_decline") setAmount(12500);
-    else if (sc === "checkout_abandonment") setAmount(8200);
-    else if (sc === "subscription_failure") setAmount(18000);
-    else if (sc === "recovery_success") setAmount(4999);
+    if (sc === "return_size_issue") setAmount(4999);
+    else if (sc === "ndr_cash_unavailable") setAmount(3499);
   };
 
   const handleTrigger = async () => {
@@ -83,7 +80,7 @@ export default function DemoSimulatorModal() {
               </div>
               <div>
                 <h3 className="font-bold text-lg text-white">Revenue Recovery Simulator</h3>
-                <p className="text-xs text-white/60">Injects test scenarios into the real multi-agent pipeline</p>
+                <p className="text-xs text-white/60">Injects test scenarios into the real revenue-recovery pipeline</p>
               </div>
             </div>
 
@@ -95,29 +92,14 @@ export default function DemoSimulatorModal() {
               <div className="grid grid-cols-1 gap-2">
                 {[
                   {
-                    id: "upi_failure",
-                    label: "Temporary UPI Timeout (₹4,999)",
-                    desc: "Simulates transient NPCI gateway timeout; AI evaluates Instant UPI Retry"
+                    id: "return_size_issue",
+                    label: "Return: Size Issue → Size Exchange (₹4,999)",
+                    desc: "Customer reported Size 9 too small on Aeon Runner. AI evaluates Size 10 Exchange to retain 100% revenue."
                   },
                   {
-                    id: "card_decline",
-                    label: "Card Issuer Decline (₹12,500)",
-                    desc: "Simulates fraud limit decline; AI evaluates Alternate Payment (UPI)"
-                  },
-                  {
-                    id: "checkout_abandonment",
-                    label: "Checkout Cart Abandonment (₹8,200)",
-                    desc: "Simulates drop-off; AI creates 1-Click Recovery Link"
-                  },
-                  {
-                    id: "subscription_failure",
-                    label: "High-Value Mandate Failure (₹18,000)",
-                    desc: "Simulates recurring charge failure; evaluates Smart Retry"
-                  },
-                  {
-                    id: "recovery_success",
-                    label: "Simulate Customer Payment Recovery",
-                    desc: "Completes active recovery opportunity and updates merchant metrics in realtime"
+                    id: "ndr_cash_unavailable",
+                    label: "NDR: COD Cash Unavailable → Pay Online (₹3,499)",
+                    desc: "Customer lacks cash on delivery attempt 1. AI converts COD to Razorpay prepaid so delivery proceeds immediately."
                   }
                 ].map((item) => (
                   <button
@@ -140,19 +122,17 @@ export default function DemoSimulatorModal() {
             </div>
 
             {/* Amount Override */}
-            {scenario !== "recovery_success" && (
-              <div className="mb-6">
-                <label className="text-xs font-semibold text-white/70 block mb-2">
-                  Transaction Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  value={amount}
-                  onChange={(e) => setAmount(Number(e.target.value))}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-sm text-white font-mono focus:border-[#D4FF00] focus:outline-none"
-                />
-              </div>
-            )}
+            <div className="mb-6">
+              <label className="text-xs font-semibold text-white/70 block mb-2">
+                Transaction Amount (₹)
+              </label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-2 text-sm text-white font-mono focus:border-[#D4FF00] focus:outline-none"
+              />
+            </div>
 
             {/* Action Buttons */}
             <div className="flex gap-3">
@@ -162,7 +142,7 @@ export default function DemoSimulatorModal() {
                 className="flex-1 bg-[#D4FF00] text-black font-bold py-3 px-4 rounded-xl text-sm hover:bg-[#c5e128] transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
               >
                 {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-                <span>{scenario === "recovery_success" ? "Execute Recovery" : "Inject Event"}</span>
+                <span>Inject Event</span>
               </button>
 
               <button

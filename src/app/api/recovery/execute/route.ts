@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { opportunityId, action, paymentMethod = "upi" } = body as {
       opportunityId: string;
-      action: "approve" | "recover" | "dismiss";
+      action: "approve" | "recover" | "dismiss" | "confirm_exchange";
       paymentMethod?: string;
     };
 
@@ -20,8 +20,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
     }
 
-    if (action === "recover") {
-      const recovered = await RecoveryOrchestrator.processRecoverySuccess(opportunityId, paymentMethod);
+    if (action === "recover" || action === "confirm_exchange") {
+      const method = action === "confirm_exchange" ? "exchange" : paymentMethod;
+      const recovered = await RecoveryOrchestrator.processRecoverySuccess(opportunityId, method);
       return NextResponse.json({ success: true, opportunity: recovered });
     }
 

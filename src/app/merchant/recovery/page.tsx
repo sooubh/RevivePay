@@ -5,100 +5,89 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import MerchantNav from "@/components/merchant/MerchantNav";
 import DemoSimulatorModal from "@/components/simulator/DemoSimulatorModal";
-import MultiChannelDispatchModal from "@/components/merchant/MultiChannelDispatchModal";
-import ReviveCopilotModal from "@/components/merchant/ReviveCopilotModal";
 import { dbService } from "@/lib/firebase/db";
-import { RecoveryOpportunity } from "@/lib/types";
+import { RecoveryOpportunity, OverviewMetrics } from "@/lib/types";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Search,
   Check,
-  CreditCard,
-  QrCode,
-  ShieldCheck,
-  RefreshCw,
-  Sliders,
   CheckCircle2,
   AlertCircle,
-  MessageSquare,
-  Tag,
-  Send,
-  XCircle
+  AlertTriangle,
+  Clock,
+  RefreshCw,
+  Truck,
+  ChevronDown,
+  ChevronUp,
+  RotateCcw,
+  Sparkles,
+  XCircle,
+  ExternalLink
 } from "lucide-react";
 
-function RecoveryContent() {
+function RecoveryTableContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryId = searchParams.get("id") || searchParams.get("oppId");
 
   const [opportunities, setOpportunities] = useState<RecoveryOpportunity[]>([]);
-  const [selectedOpp, setSelectedOpp] = useState<RecoveryOpportunity | null>(null);
-  const [filter, setFilter] = useState<"all" | "failed" | "pending">("all");
+  const [metrics, setMetrics] = useState<OverviewMetrics | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filterTab, setFilterTab] = useState<"all" | "pending" | "recovered" | "return" | "ndr">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [executing, setExecuting] = useState(false);
-  const [activeCustomer, setActiveCustomer] = useState<any>(null);
-  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [executingId, setExecutingId] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
-    const unsub = dbService.subscribeOpportunities((data) => {
+    const unsubOpps = dbService.subscribeOpportunities((data) => {
       setOpportunities(data);
-      if (data.length > 0) {
-        setSelectedOpp((prev) => {
-          if (queryId) {
-            const match = data.find((d) => d.opportunityId === queryId);
-            if (match) return match;
-          }
-          if (!prev) return data[0];
-          const found = data.find((d) => d.opportunityId === prev.opportunityId);
-          return found || data[0];
-        });
+      if (queryId && !expandedId) {
+        setExpandedId(queryId);
       }
     });
 
-    return () => unsub();
+    const unsubMetrics = dbService.subscribeMetrics((data) => {
+      setMetrics(data);
+    });
+
+    return () => {
+      unsubOpps();
+      unsubMetrics();
+    };
   }, [queryId]);
 
-  const activeOpp = selectedOpp || opportunities[0];
-
-  useEffect(() => {
-    if (activeOpp?.customerId) {
-      dbService.getCustomerById(activeOpp.customerId).then((c) => {
-        setActiveCustomer(c);
-      });
-    } else {
-      setActiveCustomer(null);
-    }
-  }, [activeOpp?.customerId]);
-
-  const handleExecuteRecovery = async () => {
-    if (!activeOpp) return;
-    setExecuting(true);
+  // Handle 1-click inline test simulation for demo
+  const handleQuickExecute = async (opp: RecoveryOpportunity) => {
+    setExecutingId(opp.opportunityId);
     try {
+      const action = opp.sourceType === "return" ? "confirm_exchange" : "recover";
+      const paymentMethod = opp.sourceType === "ndr" ? "razorpay_prepaid" : "exchange";
       const res = await fetch("/api/recovery/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          opportunityId: activeOpp.opportunityId,
-          action: "approve"
+          opportunityId: opp.opportunityId,
+          action,
+          paymentMethod
         })
       });
       await res.json();
     } catch (e) {
       console.error("Execution error:", e);
     } finally {
-      setExecuting(false);
+      setExecutingId(null);
     }
   };
 
-  const handleDismissRecovery = async () => {
-    if (!activeOpp) return;
-    setExecuting(true);
+  const handleDismiss = async (oppId: string) => {
+    setExecutingId(oppId);
     try {
       const res = await fetch("/api/recovery/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          opportunityId: activeOpp.opportunityId,
+          opportunityId: oppId,
           action: "dismiss"
         })
       });
@@ -106,452 +95,573 @@ function RecoveryContent() {
     } catch (e) {
       console.error("Dismiss error:", e);
     } finally {
-      setExecuting(false);
+      setExecutingId(null);
     }
   };
 
-  const handleSimulatePaymentRecovered = async () => {
-    if (!activeOpp) return;
-    setExecuting(true);
+  const handleResetDemoSeed = async () => {
+    setResetting(true);
     try {
-      const res = await fetch("/api/recovery/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          opportunityId: activeOpp.opportunityId,
-          action: "recover",
-          paymentMethod: "upi"
-        })
-      });
-      await res.json();
+      await fetch("/api/seed", { method: "POST" });
+      const res = await fetch("/api/seed", { method: "GET" });
+      const data = await res.json();
+      if (data.metrics) setMetrics(data.metrics);
+      setExpandedId(null);
     } catch (e) {
-      console.error("Recovery error:", e);
+      console.error("Reset error:", e);
     } finally {
-      setExecuting(false);
+      setResetting(false);
     }
   };
 
+  // Filter opportunities
   const filteredOpps = opportunities.filter((opp) => {
-    if (filter === "failed" && opp.status !== "failed" && opp.status !== "failed_recovery") return false;
-    if (filter === "pending" && opp.status === "recovered") return false;
+    if (filterTab === "pending" && opp.status === "recovered") return false;
+    if (filterTab === "recovered" && opp.status !== "recovered") return false;
+    if (filterTab === "return" && opp.sourceType !== "return") return false;
+    if (filterTab === "ndr" && opp.sourceType !== "ndr") return false;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       return (
         opp.opportunityId.toLowerCase().includes(q) ||
-        opp.failureType.toLowerCase().includes(q) ||
-        (opp.customerName && opp.customerName.toLowerCase().includes(q))
+        (opp.customerName && opp.customerName.toLowerCase().includes(q)) ||
+        (opp.orderId && opp.orderId.toLowerCase().includes(q)) ||
+        (opp.productName && opp.productName.toLowerCase().includes(q)) ||
+        (opp.failureType && opp.failureType.toLowerCase().includes(q)) ||
+        (opp.recommendedAction && opp.recommendedAction.toLowerCase().includes(q))
       );
     }
     return true;
   });
 
+  const pendingCount = opportunities.filter((o) => o.status !== "recovered").length;
+  const recoveredCount = opportunities.filter((o) => o.status === "recovered").length;
+  const returnsCount = opportunities.filter((o) => o.sourceType === "return").length;
+  const ndrsCount = opportunities.filter((o) => o.sourceType === "ndr").length;
+
   return (
-    <div className="bg-[#2a2a2a] text-white font-sans min-h-screen w-full flex flex-col selection:bg-[#D4FF00] selection:text-black">
+    <div className="bg-[#22252a] text-white font-sans min-h-screen w-full flex flex-col selection:bg-[#D4FF00] selection:text-black">
       <MerchantNav />
 
-      {/* Main Content */}
-      <main className="flex-1 px-6 md:px-12 xl:px-16 pb-12 flex flex-col z-0 relative w-full">
-        {/* Header */}
-        <header className="flex items-center justify-between mb-8 mt-2">
+      <main className="flex-1 px-4 md:px-10 lg:px-12 py-8 flex flex-col w-full max-w-[1600px] mx-auto">
+        {/* Header Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push("/merchant/overview")}
-              className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center bg-white/10 text-white hover:bg-white/20 shadow-sm transition-colors"
+              onClick={() => router.push("/store")}
+              className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center bg-white/5 text-white hover:bg-white/15 transition-all shadow-sm"
+              title="Go to Customer Store"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <h1 className="text-4xl md:text-5xl font-medium tracking-tight text-white leading-none">
-              Recovery
-            </h1>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white">
+                  Recovery Queue
+                </h1>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#D4FF00] animate-pulse" />
+              </div>
+              <p className="text-xs text-white/60 mt-0.5">
+                Real-time AI interventions for customer Returns and Non-Delivery Reports (NDRs)
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <Link
-              href="/merchant/audit"
-              className="bg-white/10 border border-white/20 rounded-full px-5 py-2.5 text-xs font-bold text-white flex items-center gap-2 hover:bg-white/20 shadow-sm transition-all"
+            <button
+              onClick={handleResetDemoSeed}
+              disabled={resetting}
+              className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 text-xs font-bold text-white flex items-center gap-2 transition-all disabled:opacity-50"
+              title="Reset to 2 clean demo cases"
             >
-              <ShieldCheck className="w-4 h-4 text-[#D4FF00]" />
-              <span>Audit Log</span>
-            </Link>
+              <RotateCcw className={`w-3.5 h-3.5 ${resetting ? "animate-spin" : ""}`} />
+              <span>{resetting ? "Resetting..." : "Reset Demo Data"}</span>
+            </button>
           </div>
-        </header>
+        </div>
 
-        {/* 2-Column Split Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 items-start w-full">
-          {/* Left Column: List of Opportunities (5 Cols) */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            {/* Segmented Filter Control */}
-            <div className="bg-white/10 rounded-full p-1 flex items-center shadow-inner border border-white/10">
-              <button
-                onClick={() => setFilter("all")}
-                className={`flex-1 py-2 rounded-full text-xs font-bold transition-all ${
-                  filter === "all" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
-                }`}
-              >
-                All ({opportunities.length})
-              </button>
-              <button
-                onClick={() => setFilter("failed")}
-                className={`flex-1 py-2 rounded-full text-xs font-bold transition-all ${
-                  filter === "failed" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
-                }`}
-              >
-                Failed ({opportunities.filter((o) => o.status === "failed" || o.status === "failed_recovery").length})
-              </button>
-              <button
-                onClick={() => setFilter("pending")}
-                className={`flex-1 py-2 rounded-full text-xs font-bold transition-all ${
-                  filter === "pending" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
-                }`}
-              >
-                Pending ({opportunities.filter((o) => o.status !== "recovered").length})
-              </button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="bg-white/5 rounded-full border border-white/10 flex items-center px-4 py-2.5 shadow-sm">
-              <input
-                type="text"
-                placeholder="Search transaction, reason, customer..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs w-full text-white placeholder-white/40 focus:ring-0 p-0"
-              />
-              <Search className="w-4 h-4 text-white/40" />
-            </div>
-
-            {/* Opportunities Cards List */}
-            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-              {filteredOpps.map((opp) => {
-                const isSelected = activeOpp?.opportunityId === opp.opportunityId;
-                return (
-                  <div
-                    key={opp.opportunityId}
-                    onClick={() => setSelectedOpp(opp)}
-                    className={`p-4 rounded-3xl cursor-pointer transition-all border ${
-                      isSelected
-                        ? "bg-[#7A90A2]/30 border-[#D4FF00] shadow-xl text-white scale-[1.01]"
-                        : "bg-white/5 border-white/10 hover:bg-white/10 text-white/80"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold shadow-sm ${
-                            opp.status === "recovered"
-                              ? "bg-[#D4FF00] text-black"
-                              : isSelected
-                              ? "bg-[#D4FF00] text-black"
-                              : "bg-white/10 text-white"
-                          }`}
-                        >
-                          {opp.paymentMethod === "upi" ? (
-                            <QrCode className="w-4 h-4" />
-                          ) : (
-                            <CreditCard className="w-4 h-4" />
-                          )}
-                        </div>
-                        <div>
-                          <span className="font-mono text-xs font-bold text-white block">{opp.opportunityId}</span>
-                          <span className="text-xs text-white/60 block">{opp.customerName || "Customer"}</span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="font-bold text-base text-white font-mono block">
-                          ₹{opp.amount.toLocaleString()}
-                        </span>
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                            opp.status === "recovered"
-                              ? "bg-green-500/20 text-green-300"
-                              : opp.priority === "High Priority"
-                              ? "bg-[#D4FF00]/20 text-[#D4FF00]"
-                              : "bg-white/10 text-white/70"
-                          }`}
-                        >
-                          {opp.priority}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 pt-2.5 border-t border-white/10 flex items-center justify-between text-xs">
-                      <span className="text-white/60 truncate max-w-[240px]">{opp.failureType}</span>
-                      <span className="text-[#D4FF00] font-bold font-mono">
-                        {Math.round((opp.recoveryProbability || 0.8) * 100)}% Prob
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+        {/* Live KPI Metric Strip */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
+            <span className="text-[11px] text-white/50 uppercase font-bold tracking-wider block mb-1">
+              Active Cases
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl md:text-3xl font-black font-mono text-white">
+                {opportunities.length}
+              </span>
+              <span className="text-xs text-white/50">
+                ({returnsCount} Return • {ndrsCount} NDR)
+              </span>
             </div>
           </div>
 
-          {/* Right Column: Detailed Decision Panel (7 Cols) */}
-          <div className="lg:col-span-7 bg-[#a2b4c1] text-[#2a2a2a] rounded-[2.5rem] p-6 md:p-8 flex flex-col justify-between shadow-2xl min-h-[640px]">
-            {activeOpp ? (
-              <>
-                <div className="space-y-6">
-                  {/* Top Row: Title + AI Badge */}
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h2 className="text-2xl font-black text-[#2a2a2a] tracking-tight">Decision Details</h2>
-                      <p className="text-xs text-[#2a2a2a]/70 font-mono">
-                        Opportunity: <span className="font-bold">{activeOpp.opportunityId}</span> • Method: {activeOpp.paymentMethod.toUpperCase()}
-                      </p>
-                    </div>
+          <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
+            <span className="text-[11px] text-white/50 uppercase font-bold tracking-wider block mb-1">
+              Revenue at Risk
+            </span>
+            <span className="text-2xl md:text-3xl font-black font-mono text-white">
+              ₹{(metrics?.revenueAtRisk ?? 0).toLocaleString()}
+            </span>
+          </div>
 
-                    <span className="px-3.5 py-1.5 bg-[#2a2a2a] text-[#D4FF00] rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>{activeOpp.decision?.model || "gemini-1.5-flash"}</span>
-                    </span>
-                  </div>
+          <div className="bg-white/5 rounded-2xl p-5 border border-[#D4FF00]/30 backdrop-blur-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-[#D4FF00]/10 rounded-full blur-xl pointer-events-none" />
+            <span className="text-[11px] text-[#D4FF00] uppercase font-bold tracking-wider block mb-1">
+              AI Revenue Retained
+            </span>
+            <span className="text-2xl md:text-3xl font-black font-mono text-[#D4FF00]">
+              ₹{(metrics?.aiRecovered ?? 0).toLocaleString()}
+            </span>
+          </div>
 
-                  {/* Customer Profile Box */}
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 flex items-center justify-between border border-white/60 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-full bg-[#2a2a2a] text-[#D4FF00] font-black flex items-center justify-center text-sm">
-                        {activeOpp.customerName ? activeOpp.customerName.charAt(0) : "S"}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-[#2a2a2a]">{activeOpp.customerName || "Sarah Jenkins"}</h4>
-                        <p className="text-xs text-gray-500 font-mono">{activeOpp.customerId || "CUS-8F42K1"}</p>
-                      </div>
-                    </div>
+          <div className="bg-white/5 rounded-2xl p-5 border border-white/10 backdrop-blur-sm">
+            <span className="text-[11px] text-white/50 uppercase font-bold tracking-wider block mb-1">
+              Recovery Rate
+            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl md:text-3xl font-black font-mono text-white">
+                {metrics?.recoveryRate ?? 0}%
+              </span>
+              <span className="text-xs text-green-400 font-bold">
+                {recoveredCount} of {opportunities.length} saved
+              </span>
+            </div>
+          </div>
+        </div>
 
-                    <div className="text-right text-xs">
-                      <span className="text-gray-500 block">Customer Lifetime Spend</span>
-                      <span className="font-bold text-[#2a2a2a] font-mono">
-                        ₹{(activeCustomer?.totalSpend ?? (activeOpp.amount * 2)).toLocaleString()}.00 (
-                        {(activeCustomer?.successfulPayments || 0) > 1
-                          ? `Repeat Buyer • ${activeCustomer?.successfulPayments} orders`
-                          : "Verified Customer"}
-                        )
-                      </span>
-                    </div>
-                  </div>
+        {/* Filter Tabs & Search Bar */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-1.5 bg-white/5 p-1.5 rounded-2xl border border-white/10">
+            <button
+              onClick={() => setFilterTab("all")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                filterTab === "all" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
+              }`}
+            >
+              All ({opportunities.length})
+            </button>
+            <button
+              onClick={() => setFilterTab("pending")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                filterTab === "pending" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
+              }`}
+            >
+              Pending ({pendingCount})
+            </button>
+            <button
+              onClick={() => setFilterTab("recovered")}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                filterTab === "recovered" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/70 hover:text-white"
+              }`}
+            >
+              Recovered ({recoveredCount})
+            </button>
+            <button
+              onClick={() => setFilterTab("return")}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                filterTab === "return" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/60 hover:text-white"
+              }`}
+            >
+              Returns ({returnsCount})
+            </button>
+            <button
+              onClick={() => setFilterTab("ndr")}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                filterTab === "ndr" ? "bg-[#D4FF00] text-black shadow-sm" : "text-white/60 hover:text-white"
+              }`}
+            >
+              NDRs ({ndrsCount})
+            </button>
+          </div>
 
-                  {/* 2-Stat Box */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm">
-                      <span className="text-[11px] text-gray-500 uppercase font-semibold block mb-1">Payment Amount</span>
-                      <span className="text-2xl font-black text-[#2a2a2a] font-mono">
-                        ₹{activeOpp.amount.toLocaleString()}.00
-                      </span>
-                    </div>
+          <div className="relative w-full md:w-80">
+            <input
+              type="text"
+              placeholder="Search case, customer, product..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-2.5 pl-10 text-xs text-white placeholder-white/40 focus:outline-none focus:border-[#D4FF00] transition-colors"
+            />
+            <Search className="w-4 h-4 text-white/40 absolute left-3.5 top-3" />
+          </div>
+        </div>
 
-                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 border border-white/60 shadow-sm">
-                      <span className="text-[11px] text-gray-500 uppercase font-semibold block mb-1">Expected Recovery</span>
-                      <span className="text-2xl font-black text-[#5e3bdb] font-mono">
-                        ₹{(activeOpp.expectedRecovery || Math.round(activeOpp.amount * 0.82)).toLocaleString()}.00
-                      </span>
-                    </div>
-                  </div>
+        {/* Structured List / Table */}
+        <div className="bg-white/5 rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-white/10 bg-black/20 text-[11px] uppercase tracking-wider text-white/50 font-bold">
+                  <th className="py-4 px-5">Case & Type</th>
+                  <th className="py-4 px-5">Customer & Order</th>
+                  <th className="py-4 px-5">Issue / Root Cause</th>
+                  <th className="py-4 px-5">AI Recommendation</th>
+                  <th className="py-4 px-5">Revenue Impact</th>
+                  <th className="py-4 px-5">Status</th>
+                  <th className="py-4 px-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5 text-xs">
+                {filteredOpps.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-white/50 text-xs">
+                      No recovery cases found matching the current filter.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOpps.map((opp) => {
+                    const isExpanded = expandedId === opp.opportunityId;
+                    const isRecovered = opp.status === "recovered";
+                    const isReturn = opp.sourceType === "return";
+                    const isNdr = opp.sourceType === "ndr";
+                    const isExecuting = executingId === opp.opportunityId;
 
-                  {/* Strategies Evaluated Section */}
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border border-white/60 shadow-sm space-y-3">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">Strategies Evaluated</h4>
-                      <span className="text-[11px] text-gray-500">Expected Net Value Ranked</span>
-                    </div>
+                    return (
+                      <React.Fragment key={opp.opportunityId}>
+                        <tr
+                          className={`transition-colors hover:bg-white/5 ${
+                            isExpanded ? "bg-white/[0.07]" : ""
+                          }`}
+                        >
+                          {/* Col 1: Case & Type */}
+                          <td className="py-4 px-5 align-top">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-white text-xs">
+                                {opp.opportunityId}
+                              </span>
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-1.5">
+                              {isReturn ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-[#D4FF00] text-black">
+                                  <RefreshCw className="w-2.5 h-2.5" />
+                                  RETURN
+                                </span>
+                              ) : isNdr ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-blue-400 text-black">
+                                  <Truck className="w-2.5 h-2.5" />
+                                  NDR
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/20 text-white">
+                                  PAYMENT
+                                </span>
+                              )}
+                              <span className="text-[10px] text-white/40">Today</span>
+                            </div>
+                          </td>
 
-                    <div className="space-y-2.5">
-                      {activeOpp.decision?.strategiesEvaluated && activeOpp.decision.strategiesEvaluated.length > 0 ? (
-                        activeOpp.decision.strategiesEvaluated.filter(s => s.strategy !== "do_nothing").slice(0, 3).map((strat) => {
-                          const isSelected = strat.strategy === (activeOpp.decision?.selectedStrategy || activeOpp.selectedStrategy);
-                          const probPercent = Math.round((strat.probability || 0) * 100);
-                          if (isSelected) {
-                            return (
-                              <div key={strat.strategy} className="p-3 bg-[#D4FF00]/30 rounded-xl border border-[#D4FF00] relative overflow-hidden">
-                                <div className="flex justify-between text-xs font-extrabold text-black mb-1">
+                          {/* Col 2: Customer & Order */}
+                          <td className="py-4 px-5 align-top">
+                            <span className="font-bold text-white block">
+                              {opp.customerName || "Customer"}
+                            </span>
+                            <span className="text-[11px] text-white/50 block font-mono">
+                              {opp.orderId || "ORD-001"}
+                            </span>
+                            <span className="text-[11px] text-white/70 block mt-0.5 font-medium truncate max-w-[180px]">
+                              {opp.productName || "Aeon Performance Runner"}
+                            </span>
+                          </td>
+
+                          {/* Col 3: Issue / Root Cause */}
+                          <td className="py-4 px-5 align-top">
+                            {isReturn ? (
+                              <div>
+                                <div className="text-xs font-bold text-red-300 flex items-center gap-1.5">
+                                  <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                                  <span>Size Mismatch</span>
+                                </div>
+                                <span className="text-[11px] text-white/60 block mt-0.5">
+                                  Customer has Size {opp.currentSize || "9"} (Too tight)
+                                </span>
+                              </div>
+                            ) : isNdr ? (
+                              <div>
+                                <div className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                  <span>Cash Unavailable</span>
+                                </div>
+                                <span className="text-[11px] text-white/60 block mt-0.5">
+                                  COD attempt 1 paused at doorstep
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="text-xs font-bold text-white block">Payment Failure</span>
+                                <span className="text-[11px] text-white/60 block">{opp.failureType}</span>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Col 4: AI Recommendation & Logic */}
+                          <td className="py-4 px-5 align-top max-w-[280px]">
+                            {isReturn ? (
+                              <div>
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#D4FF00]/20 text-[#D4FF00] font-extrabold text-xs border border-[#D4FF00]/30">
+                                  <CheckCircle2 className="w-3 h-3 text-[#D4FF00]" />
+                                  <span>Size {opp.replacementSize || "10"} Exchange</span>
+                                </div>
+                                <p className="text-[11px] text-white/70 mt-1 leading-snug">
+                                  Size {opp.replacementSize || "10"} verified in stock. Direct exchange preserves 100% order value vs refund loss.
+                                </p>
+                                <span className="text-[10px] text-white/40 block mt-0.5 font-mono">
+                                  Demo Estimate: 95% retention
+                                </span>
+                              </div>
+                            ) : isNdr ? (
+                              <div>
+                                <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#D4FF00]/20 text-[#D4FF00] font-extrabold text-xs border border-[#D4FF00]/30">
+                                  <CheckCircle2 className="w-3 h-3 text-[#D4FF00]" />
+                                  <span>Convert COD to Razorpay</span>
+                                </div>
+                                <p className="text-[11px] text-white/70 mt-1 leading-snug">
+                                  Eliminates 65% courier RTO risk and secures ₹{opp.amount.toLocaleString()} upfront without cash friction.
+                                </p>
+                                <span className="text-[10px] text-white/40 block mt-0.5 font-mono">
+                                  Demo Estimate: 90% retention
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="font-bold text-white">{opp.recommendedAction}</span>
+                                <p className="text-[11px] text-white/60 mt-1">{opp.recommendationReason}</p>
+                              </div>
+                            )}
+                          </td>
+
+                          {/* Col 5: Revenue Impact */}
+                          <td className="py-4 px-5 align-top">
+                            <span className="text-[11px] text-white/50 block">At Risk</span>
+                            <span className="font-bold font-mono text-white text-sm block">
+                              ₹{opp.amount.toLocaleString()}
+                            </span>
+                            <span className="text-[11px] text-[#D4FF00] font-bold block mt-1">
+                              {isRecovered ? "✓ 100% Retained" : "₹" + (opp.expectedRecovery || opp.amount).toLocaleString() + " Retainable"}
+                            </span>
+                          </td>
+
+                          {/* Col 6: Status */}
+                          <td className="py-4 px-5 align-top">
+                            {isRecovered ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-green-500/20 text-green-300 border border-green-500/40">
+                                <Check className="w-3 h-3" />
+                                RETAINED
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#D4FF00]/20 text-[#D4FF00] border border-[#D4FF00]/40">
+                                <Clock className="w-3 h-3" />
+                                ACTION READY
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Col 7: Actions */}
+                          <td className="py-4 px-5 align-top text-right">
+                            <div className="flex flex-col items-end gap-1.5">
+                              {!isRecovered ? (
+                                isReturn ? (
                                   <div className="flex items-center gap-1.5">
-                                    <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
-                                    <span>{strat.label} (Selected)</span>
+                                    <Link
+                                      href={`/store/payment?oppId=${opp.opportunityId}&orderId=${opp.orderId}&type=return`}
+                                      target="_blank"
+                                      className="px-3 py-1.5 bg-[#D4FF00] hover:bg-[#b8de00] text-black font-black rounded-xl text-xs flex items-center gap-1 shadow-md transition-all whitespace-nowrap"
+                                      title="Open the customer exchange screen"
+                                    >
+                                      <span>Customer Exchange</span>
+                                      <ArrowUpRight className="w-3.5 h-3.5" />
+                                    </Link>
+                                    <button
+                                      onClick={() => handleQuickExecute(opp)}
+                                      disabled={isExecuting}
+                                      className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition-all disabled:opacity-50"
+                                      title="Quick 1-click test confirmation"
+                                    >
+                                      {isExecuting ? "..." : "Simulate"}
+                                    </button>
                                   </div>
-                                  <span className="font-mono text-black">{probPercent}% Recovery Prob</span>
+                                ) : isNdr ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <Link
+                                      href={`/store/payment?oppId=${opp.opportunityId}&orderId=${opp.orderId}&type=ndr`}
+                                      target="_blank"
+                                      className="px-3 py-1.5 bg-[#D4FF00] hover:bg-[#b8de00] text-black font-black rounded-xl text-xs flex items-center gap-1 shadow-md transition-all whitespace-nowrap"
+                                      title="Open the customer prepaid payment link"
+                                    >
+                                      <span>Customer Prepaid</span>
+                                      <ArrowUpRight className="w-3.5 h-3.5" />
+                                    </Link>
+                                    <button
+                                      onClick={() => handleQuickExecute(opp)}
+                                      disabled={isExecuting}
+                                      className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition-all disabled:opacity-50"
+                                      title="Quick 1-click test confirmation"
+                                    >
+                                      {isExecuting ? "..." : "Simulate"}
+                                    </button>
+                                  </div>
+                                ) : null
+                              ) : (
+                                <span className="px-3 py-1.5 bg-green-500/10 text-green-300 font-bold rounded-xl text-xs flex items-center gap-1 border border-green-500/30">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                                  <span>Recovered</span>
+                                </span>
+                              )}
+
+                              {/* Expand Drawer Button */}
+                              <button
+                                onClick={() => setExpandedId(isExpanded ? null : opp.opportunityId)}
+                                className="text-[11px] text-white/50 hover:text-white flex items-center gap-1 font-medium transition-colors mt-0.5"
+                              >
+                                <span>{isExpanded ? "Hide Details" : "Inspect Decision"}</span>
+                                {isExpanded ? (
+                                  <ChevronUp className="w-3 h-3" />
+                                ) : (
+                                  <ChevronDown className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* In-Line Expanded Inspection Drawer */}
+                        {isExpanded && (
+                          <tr className="bg-black/30 border-b border-white/10">
+                            <td colSpan={7} className="p-6">
+                              <div className="bg-white/5 rounded-2xl p-5 border border-white/10 space-y-4">
+                                <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                                  <Sparkles className="w-4 h-4 text-[#D4FF00]" />
+                                  <h4 className="font-extrabold text-white text-sm">Case Details</h4>
                                 </div>
-                                <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
-                                  <div className="h-full bg-[#2a2a2a] rounded-full" style={{ width: `${probPercent}%` }} />
+                                
+                                <div className="space-y-3 text-xs">
+                                  <div className="bg-black/30 rounded-xl p-4 border border-white/5">
+                                    <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider block mb-2">What Happened</span>
+                                    <p className="text-white/90 text-sm font-medium">{opp.failureType}</p>
+                                  </div>
+                                  
+                                  <div className="bg-black/30 rounded-xl p-4 border border-white/5">
+                                    <span className="text-[10px] text-white/50 uppercase font-bold tracking-wider block mb-2">Why Revenue Is At Risk</span>
+                                    <p className="text-white/90">
+                                      {isReturn 
+                                        ? `Returning ${opp.productName} (Size ${opp.currentSize}) would result in a full ₹${opp.amount.toLocaleString()} refund and lost sale.`
+                                        : `COD payment of ₹${opp.amount.toLocaleString()} could not be collected. Without recovery, this order returns to origin.`
+                                      }
+                                    </p>
+                                  </div>
+                                  
+                                  <div className="bg-black/30 rounded-xl p-4 border border-[#D4FF00]/20">
+                                    <span className="text-[10px] text-[#D4FF00] uppercase font-bold tracking-wider block mb-2">Recommended Action</span>
+                                    <div className="flex items-center gap-2">
+                                      <CheckCircle2 className="w-4 h-4 text-[#D4FF00]" />
+                                      <span className="text-[#D4FF00] font-bold text-sm">{opp.recommendedAction}</span>
+                                    </div>
+                                    <p className="text-white/70 mt-1">
+                                      {isReturn
+                                        ? `Size ${opp.replacementSize} is in stock. Exchange preserves 100% order value.`
+                                        : `Razorpay digital payment secures full order value and resumes delivery immediately.`
+                                      }
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-white/10">
+                                  <span className="text-xs text-white/60">
+                                    Status: <strong className="text-white uppercase">{opp.status}</strong>
+                                  </span>
+
+                                  {!isRecovered ? (
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {/* Primary: Send recovery link to customer */}
+                                      <Link
+                                        href={isReturn
+                                          ? `/store/payment?oppId=${opp.opportunityId}&orderId=${opp.orderId}&type=return`
+                                          : `/store/payment?oppId=${opp.opportunityId}&orderId=${opp.orderId}&type=ndr`
+                                        }
+                                        target="_blank"
+                                        className="px-4 py-2 bg-[#D4FF00] hover:bg-[#c5e128] text-black font-black rounded-xl text-xs flex items-center gap-1.5 shadow-lg transition-all"
+                                      >
+                                        <ExternalLink className="w-3.5 h-3.5" />
+                                        <span>{isReturn ? "Send Exchange Offer to Customer" : "Send Payment Link to Customer"}</span>
+                                      </Link>
+
+                                      {/* Secondary: Approve recommendation */}
+                                      <button
+                                        onClick={async () => {
+                                          setExecutingId(opp.opportunityId);
+                                          try {
+                                            await fetch("/api/recovery/execute", {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json" },
+                                              body: JSON.stringify({ opportunityId: opp.opportunityId, action: "approve" })
+                                            });
+                                          } catch (e) {} finally { setExecutingId(null); }
+                                        }}
+                                        disabled={isExecuting}
+                                        className="px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-green-500/30 transition-all disabled:opacity-50"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                        <span>{isExecuting ? "..." : "Approve"}</span>
+                                      </button>
+
+                                      {/* Demo: Quick simulate recovery */}
+                                      <button
+                                        onClick={() => handleQuickExecute(opp)}
+                                        disabled={isExecuting}
+                                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 border border-white/20 transition-all disabled:opacity-50"
+                                        title="Simulate customer completing recovery"
+                                      >
+                                        <RefreshCw className={`w-3.5 h-3.5 ${isExecuting ? "animate-spin" : ""}`} />
+                                        <span>{isExecuting ? "Simulating..." : "Simulate Recovery"}</span>
+                                      </button>
+
+                                      {/* Dismiss */}
+                                      <button
+                                        onClick={() => handleDismiss(opp.opportunityId)}
+                                        disabled={isExecuting}
+                                        className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-300/80 hover:text-red-300 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-red-500/20 transition-all disabled:opacity-50"
+                                      >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        <span>Dismiss</span>
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-green-500/20 text-green-300 font-bold rounded-xl text-xs border border-green-500/30">
+                                      <CheckCircle2 className="w-4 h-4 text-green-400" />
+                                      Revenue Retained — ₹{opp.amount.toLocaleString()}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                            );
-                          }
-                          return (
-                            <div key={strat.strategy}>
-                              <div className="flex justify-between text-xs font-semibold mb-1">
-                                <span>{strat.label}</span>
-                                <span className="font-mono text-gray-600">{probPercent}%</span>
-                              </div>
-                              <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-gray-400 rounded-full" style={{ width: `${probPercent}%` }} />
-                              </div>
-                            </div>
-                          );
-                        })
-                      ) : (
-                        <>
-                          <div>
-                            <div className="flex justify-between text-xs font-semibold mb-1">
-                              <span>Retry now</span>
-                              <span className="font-mono text-gray-600">31%</span>
-                            </div>
-                            <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-gray-400 rounded-full" style={{ width: "31%" }} />
-                            </div>
-                          </div>
-
-                          <div>
-                            <div className="flex justify-between text-xs font-semibold mb-1">
-                              <span>Retry later (Smart Schedule)</span>
-                              <span className="font-mono text-gray-600">61%</span>
-                            </div>
-                            <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div className="h-full bg-gray-500 rounded-full" style={{ width: "61%" }} />
-                            </div>
-                          </div>
-
-                          <div className="p-3 bg-[#D4FF00]/30 rounded-xl border border-[#D4FF00] relative overflow-hidden">
-                            <div className="flex justify-between text-xs font-extrabold text-black mb-1">
-                              <div className="flex items-center gap-1.5">
-                                <Check className="w-3.5 h-3.5 text-black stroke-[3]" />
-                                <span>{activeOpp.recommendedAction || "Alternate UPI"} (Selected)</span>
-                              </div>
-                              <span className="font-mono text-black">{Math.round((activeOpp.recoveryProbability || 0.82) * 100)}% Recovery Prob</span>
-                            </div>
-                            <div className="w-full h-3 bg-black/10 rounded-full overflow-hidden">
-                              <div className="h-full bg-[#2a2a2a] rounded-full" style={{ width: `${Math.round((activeOpp.recoveryProbability || 0.82) * 100)}%` }} />
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* AI Reasoning & Guardrails Box */}
-                  <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border border-white/60 shadow-sm space-y-2.5">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">AI Diagnosis & Guardrail Verification</h4>
-                    <p className="text-xs text-gray-800 leading-relaxed italic">
-                      "{activeOpp.recommendationReason || "UPI is recommended because this customer successfully completed 4 of the last 5 payments through UPI."}"
-                    </p>
-
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      {activeOpp.decision?.guardrailNotes && activeOpp.decision.guardrailNotes.length > 0 ? (
-                        activeOpp.decision.guardrailNotes.map((note, nIdx) => (
-                          <span key={nIdx} className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
-                            ✓ {note}
-                          </span>
-                        ))
-                      ) : (
-                        <>
-                          <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
-                            ✓ Attempt {activeOpp.attemptCount} of 2 Max Retries
-                          </span>
-                          <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-[10px] font-bold border border-green-200">
-                            ✓ Amount ₹{activeOpp.amount.toLocaleString()} &lt; ₹20,000 Threshold
-                          </span>
-                        </>
-                      )}
-                      <span className="px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-[10px] font-bold border border-purple-200">
-                        ✓ {activeOpp.decision?.guardrailOutcome || "AUTO_EXECUTE"} Approved
-                      </span>
-                    </div>
-
-                    {/* AI Dynamic Incentive Badge */}
-                    {activeOpp.incentiveOffer && activeOpp.incentiveOffer.type !== "none" && (
-                      <div className="mt-3 p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 text-amber-900 font-bold">
-                          <Tag className="w-4 h-4 text-[#b32a03]" />
-                          <span>AI Incentive: {activeOpp.incentiveOffer.label}</span>
-                        </div>
-                        <span className="px-2 py-0.5 bg-amber-200/70 rounded-md text-[10px] font-extrabold text-amber-900 uppercase">
-                          {activeOpp.incentiveOffer.badge}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Bottom Action Row */}
-                <div className="pt-6 mt-6 border-t border-black/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-xs text-gray-700">
-                    <span className="block text-[11px] text-gray-500">Current Status</span>
-                    <span className="font-extrabold uppercase font-mono text-sm text-[#2a2a2a]">
-                      {activeOpp.status.replace("_", " ")}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
-                    {activeOpp.status !== "recovered" && activeOpp.status !== "do_not_intervene" ? (
-                      <>
-                        <button
-                          onClick={() => setShowDispatchModal(true)}
-                          className="px-4 py-3 bg-[#D4FF00] text-black font-extrabold rounded-full text-xs hover:bg-[#b8de00] transition-colors shadow-md flex items-center gap-1.5"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          <span>Dispatch 1-Click Link</span>
-                        </button>
-                        <button
-                          onClick={handleExecuteRecovery}
-                          disabled={executing}
-                          className="px-4 py-3 bg-white text-black font-bold rounded-full text-xs hover:bg-gray-100 transition-colors shadow-md disabled:opacity-50"
-                        >
-                          <span>Approve Strategy</span>
-                        </button>
-                        <button
-                          onClick={handleDismissRecovery}
-                          disabled={executing}
-                          className="px-4 py-3 bg-red-100 text-red-800 font-bold rounded-full text-xs hover:bg-red-200 transition-colors shadow-sm disabled:opacity-50 flex items-center gap-1"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          <span>Dismiss</span>
-                        </button>
-                        <button
-                          onClick={handleSimulatePaymentRecovered}
-                          disabled={executing}
-                          className="px-4 py-3 bg-[#2a2a2a] text-[#D4FF00] font-extrabold rounded-full text-xs hover:bg-black transition-colors shadow-lg disabled:opacity-50 flex items-center gap-1.5"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          <span>Simulate Recovery</span>
-                        </button>
-                      </>
-                    ) : activeOpp.status === "recovered" ? (
-                      <div className="px-6 py-3 bg-green-600 text-white font-bold rounded-full text-xs flex items-center gap-2 shadow-md">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Fully Recovered via UPI</span>
-                      </div>
-                    ) : (
-                      <div className="px-6 py-3 bg-gray-500 text-white font-bold rounded-full text-xs flex items-center gap-2 shadow-md">
-                        <span>Dismissed (Do Not Intervene)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-                Select an opportunity from the left to view details
-              </div>
-            )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
 
       <DemoSimulatorModal />
-      {showDispatchModal && activeOpp && (
-        <MultiChannelDispatchModal
-          opportunity={activeOpp}
-          onClose={() => setShowDispatchModal(false)}
-        />
-      )}
-      <ReviveCopilotModal />
     </div>
   );
 }
 
 export default function MerchantRecoveryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#2a2a2a] flex items-center justify-center text-sm font-bold text-[#D4FF00]">Loading recovery queue...</div>}>
-      <RecoveryContent />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#22252a] flex items-center justify-center text-sm font-bold text-[#D4FF00]">
+          Loading recovery queue...
+        </div>
+      }
+    >
+      <RecoveryTableContent />
     </Suspense>
   );
 }

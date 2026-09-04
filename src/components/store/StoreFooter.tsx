@@ -17,9 +17,6 @@ export default function StoreFooter() {
           <Link className="hover:text-[#b32a03] transition-colors" href="/store">
             Shoes Catalog
           </Link>
-          <Link className="hover:text-[#b32a03] transition-colors" href="/welcome">
-            Role Selection
-          </Link>
           <Link className="hover:text-[#b32a03] transition-colors" href="/merchant/overview">
             Merchant Command Center
           </Link>

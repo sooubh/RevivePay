@@ -126,6 +126,27 @@ export default function CheckoutPage() {
 
       const data = await res.json();
       if (data.success && data.orderId) {
+        try {
+          const savedOrders = JSON.parse(localStorage.getItem("revivepay_orders") || "[]");
+          const orderRecord = data.order || {
+            orderId: data.orderId,
+            customerId: customer?.customerId || "CUS-8F42K1",
+            customerName: `${firstName} ${lastName}`,
+            customerEmail: email,
+            items: cart,
+            subtotal,
+            shipping: shippingFee,
+            tax,
+            total,
+            status: "pending",
+            razorpayOrderId: data.razorpayOrderId,
+            shippingAddress: { firstName, lastName, address, apartment, city, zipcode, country: "India" },
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          const updatedOrders = [orderRecord, ...savedOrders.filter((o: any) => o.orderId !== orderRecord.orderId)];
+          localStorage.setItem("revivepay_orders", JSON.stringify(updatedOrders));
+        } catch (e) {}
         router.push(`/store/payment?orderId=${data.orderId}&rzpOrder=${data.razorpayOrderId}&amount=${data.amount}`);
       } else {
         setGeneralError(data.error || "Failed to initiate order. Please try again.");
